@@ -17,8 +17,13 @@ cabal-version:       >=1.10
 
 executable endeavour
   main-is:             Endeavour.hs
-  -- other-modules:
+  other-modules:       Endeavour.Memory
   -- other-extensions:
   build-depends:       base >=4.9 && <4.10
+                     , extensible-effects >= 1.11 && < 1.12
+                     , sqlite-simple >= 0.4 && < 0.5
+                     , text
+                     , time
+
   -- hs-source-dirs:
   default-language:    Haskell2010
