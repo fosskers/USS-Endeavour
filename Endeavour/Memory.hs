@@ -29,6 +29,7 @@ seems to take care of that.
 
 -}
 
+-- | A log category.
 data LogCat = Info | Warn | Fail deriving (Eq, Read, Show)
 
 -- | A log of some event aboard the Ship.
