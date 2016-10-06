@@ -1,14 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Endeavour.Memory
   ( Log(..)
   , LogCat(..)
   , chronicle
+  , recall
   ) where
 
+import           Control.Eff
+import           Control.Eff.Lift
+import           Control.Eff.Reader.Lazy
 import qualified Data.Text as T
 import           Data.Time.Clock
 import           Database.SQLite.Simple
+import           Endeavour.Types
 
 ---
 
@@ -23,7 +29,7 @@ seems to take care of that.
 
 -}
 
-data LogCat = Info | Warn | Fail deriving (Read, Show)
+data LogCat = Info | Warn | Fail deriving (Eq, Read, Show)
 
 -- | A log of some event aboard the Ship.
 data Log = Log UTCTime LogCat T.Text deriving (Show)
@@ -35,16 +41,18 @@ instance ToRow Log where
   toRow (Log time cat text) = toRow (time, show cat, text)
 
 -- | Log some event message.
-chronicle :: Connection -> LogCat -> T.Text -> IO ()
-chronicle c cat t = do
-  now <- getCurrentTime
-  execute c "INSERT INTO shiplog (dt, cat, log) VALUES (?, ?, ?)" $ Log now cat t
+chronicle :: RIO r => LogCat -> T.Text -> Eff r ()
+chronicle cat t = do
+  c <- reader _conn
+  now <- lift getCurrentTime
+  lift $ execute c "INSERT INTO shiplog (dt, cat, log) VALUES (?, ?, ?)" $ Log now cat t
 
 -- | Probe the Ship's memory for event logs. An optional limit factor can be
 -- supplied.
-recall :: Connection -> Maybe Int -> IO [Log]
-recall c Nothing  = query_ c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC;"
-recall c (Just n) = query c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC LIMIT ?;" $ Only n
+recall :: RIO r => Maybe Int -> Eff r [Log]
+recall m = reader _conn >>= lift . f m
+  where f Nothing  c = query_ c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC;"
+        f (Just n) c = query c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC LIMIT ?;" $ Only n
 
 {-}
 say :: IO [()]

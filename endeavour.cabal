@@ -17,7 +17,10 @@ cabal-version:       >=1.10
 
 executable endeavour
   main-is:             Endeavour.hs
+
   other-modules:       Endeavour.Memory
+                     , Endeavour.Types
+
   -- other-extensions:
   build-depends:       base >=4.9 && <4.10
                      , async >= 2.1 && < 2.2
