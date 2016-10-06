@@ -4,6 +4,7 @@
 module Endeavour.Memory
   ( Log(..)
   , LogCat(..)
+  , wake
   , chronicle
   , recall
   ) where
@@ -41,6 +42,12 @@ instance FromRow Log where
 instance ToRow Log where
   toRow (Log time cat text) = toRow (time, show cat, text)
 
+-- | Create the SQLite table for logs, if necessary.
+wake :: RIO r => Eff r ()
+wake = do
+  c <- reader _conn
+  lift $ execute_ c "CREATE TABLE IF NOT EXISTS shiplog (id INTEGER PRIMARY KEY, dt DATETIME, cat TEXT, log TEXT)"
+
 -- | Log some event message.
 chronicle :: RIO r => LogCat -> T.Text -> Eff r ()
 chronicle cat t = do
@@ -54,14 +61,3 @@ recall :: RIO r => Maybe Int -> Eff r [Log]
 recall m = reader _conn >>= lift . f m
   where f Nothing  c = query_ c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC;"
         f (Just n) c = query c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC LIMIT ?;" $ Only n
-
-{-}
-say :: IO [()]
-say = withConnection "/home/colin/code/endeavour/shiplog.db" $ \c -> do
-  execute_ c "CREATE TABLE IF NOT EXISTS shiplog (id INTEGER PRIMARY KEY, dt DATETIME, cat TEXT, log TEXT)"
-  mapConcurrently (chronicle c Info) (T.words "I should make this a very long message")
-
-hear :: IO [Log]
-hear = withConnection "/home/colin/code/endeavour/shiplog.db" $ \c -> do
-  recall c $ Just 2
--}
