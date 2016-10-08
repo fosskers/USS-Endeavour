@@ -1,6 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+-- |
+-- Module    : Endeavour.Memory
+-- Copyright : (c) Colin Woodbury, 2016
+-- License   : BSD3
+-- Maintainer: Colin Woodbury <colingw@gmail.com>
+--
+-- Code for interacting with the Endeavour's memory banks,
+-- backed by <https://www.sqlite.org/ SQLite>.
+
 module Endeavour.Memory
   ( Log(..)
   , LogCat(..)
