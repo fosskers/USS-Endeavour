@@ -1,17 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import Control.Eff.Exception
 import Control.Eff.Lift
 import Control.Eff.Reader.Lazy
-import Control.Eff.Exception
+import Data.Text (Text)
 import Database.SQLite.Simple
+import Endeavour.Knowledge.LittleBits.Internal
 import Endeavour.Memory
 import Endeavour.Types
-import Endeavour.Knowledge.LittleBits.Internal
-import Test.Tasty
-import Test.Tasty.HUnit
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS
-import Data.Text (Text)
+import Test.Tasty
+import Test.Tasty.HUnit
 
 ---
 
@@ -43,9 +43,9 @@ instance Assertable (Either a b) where
 doIt :: Env -> Assertion
 doIt e = do
   r <- f
-  assert r
-  where f :: IO (Either Text Status)
-        f = runLift . runExc $ runReader (transmit devices) e
+  r @?= Right (CBStatus "foo" "bar" 1 True)
+  where f :: IO (Either Text CBStatus)
+        f = runLift . runExc $ runReader status e
 
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f

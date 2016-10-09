@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- |
 -- Module    : Endeavour.Knowledge.LittleBits.Internal
@@ -11,7 +12,11 @@
 --
 -- LittleBits Cloud Control API query logic.
 
-module Endeavour.Knowledge.LittleBits.Internal where
+module Endeavour.Knowledge.LittleBits.Internal
+  ( CBStatus(..)
+  , status
+  , transmit
+  ) where
 
 import Endeavour.Types
 import Control.Eff hiding ((:>))
@@ -20,10 +25,9 @@ import Control.Eff.Lift
 import Control.Eff.Exception
 import Data.Aeson
 import Data.Proxy
-import GHC.Generics
 import Servant.API
 import Servant.Client
-import Data.Text (Text, pack)
+import Data.Text (Text, pack, unpack)
 
 ---
 
@@ -53,21 +57,31 @@ https://api-http.littlebitscloud.cc/devices/00e04c03b6d6
 
 -- | A CloudBit's current status. Stores less than is actually returned by
 -- the LittleBits Cloud Control.
-data Status = Status { _label :: Text
-                     , _id :: Text
-                     , _userId :: Int
-                     , _isConnected :: Bool
-                     } deriving (Generic, Show)
+data CBStatus = CBStatus { _label :: Text
+                         , _id :: Text
+                         , _userId :: Int
+                         , _isConnected :: Bool
+                         } deriving (Show, Eq)
 
-instance FromJSON Status
+instance FromJSON CBStatus where
+  parseJSON (Object v) = CBStatus <$>
+                         v .: "label" <*>
+                         v .: "id" <*>
+                         v .: "user_id" <*>
+                         v .: "is_connected"
 
-type LBCCApi = "devices" :> Get '[JSON] Status
+type LBCCApi = "devices" :> Capture "device_id" String :> Header "Authorization" String :> Get '[JSON] CBStatus
 
 api :: Proxy LBCCApi
 api = Proxy
 
-devices :: ClientM Status
-devices = client api
+_device = client api
+
+-- | The current status of the CloudBit.
+status :: ERIO r => Eff r CBStatus
+status = do
+  (CloudBit did auth) <- reader _cloudbit
+  transmit . _device (unpack did) . Just $ "Bearer " ++ unpack auth
 
 baseUrl :: BaseUrl
 baseUrl = BaseUrl Https "api-http.littlebitscloud.cc" 443 ""
