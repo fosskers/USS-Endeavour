@@ -78,7 +78,7 @@ api = Proxy
 _device = client api
 
 -- | The current status of the CloudBit.
-status :: ERIO r => Eff r CBStatus
+status :: ERL r => Eff r CBStatus
 status = do
   (CloudBit did auth) <- reader _cloudbit
   transmit . _device (unpack did) . Just $ "Bearer " ++ unpack auth
@@ -87,7 +87,7 @@ baseUrl :: BaseUrl
 baseUrl = BaseUrl Https "api-http.littlebitscloud.cc" 443 ""
 
 -- | Make some call to an external API.
-transmit :: ERIO r => ClientM a -> Eff r a
+transmit :: ERL r => ClientM a -> Eff r a
 transmit m = do
   manager <- reader _manager
   res <- lift $ runClientM m (ClientEnv manager baseUrl)

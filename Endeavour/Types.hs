@@ -21,11 +21,14 @@ import Network.HTTP.Client (Manager)
 
 ---
 
--- | To simplify signatures of functions who need the `Reader` and @Lift IO@ effects.
-type RIO r = (Member (Reader Env) r, SetMember Lift (Lift IO) r)
+-- | Functions who need the @Lift IO@ effect.
+type L r = SetMember Lift (Lift IO) r
 
--- | Functions who need the `Reader`, `Exc`, and @Lift IO@ effects.
-type ERIO r = (Member (Reader Env) r, SetMember Lift (Lift IO) r, Member (Exc Text) r)
+-- | Functions who need the `Reader` and @Lift IO@ effects.
+type RL r = (Member (Reader Env) r, L r)
+
+-- | Functions who need the `Exc`, `Reader`, and @Lift IO@ effects.
+type ERL r = (Member (Exc Text) r, RL r)
 
 -- | A <http://littlebits.cc/ LittleBits> CloudBit's device ID and auth token.
 data CloudBit = CloudBit Text Text

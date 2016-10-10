@@ -52,13 +52,13 @@ instance ToRow Log where
   toRow (Log time cat text) = toRow (time, show cat, text)
 
 -- | Create the SQLite table for logs, if necessary.
-wake :: RIO r => Eff r ()
+wake :: RL r => Eff r ()
 wake = do
   c <- reader _conn
   lift $ execute_ c "CREATE TABLE IF NOT EXISTS shiplog (id INTEGER PRIMARY KEY, dt DATETIME, cat TEXT, log TEXT)"
 
 -- | Log some event message.
-chronicle :: RIO r => LogCat -> T.Text -> Eff r ()
+chronicle :: RL r => LogCat -> T.Text -> Eff r ()
 chronicle cat t = do
   c <- reader _conn
   now <- lift getCurrentTime
@@ -66,7 +66,7 @@ chronicle cat t = do
 
 -- | Probe the Ship's memory for event logs. An optional limit factor can be
 -- supplied.
-recall :: RIO r => Maybe Int -> Eff r [Log]
+recall :: RL r => Maybe Int -> Eff r [Log]
 recall m = reader _conn >>= lift . f m
   where f Nothing  c = query_ c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC;"
         f (Just n) c = query c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC LIMIT ?;" $ Only n
