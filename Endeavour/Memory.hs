@@ -24,7 +24,7 @@ import           Control.Eff.Reader.Lazy
 import qualified Data.Text as T
 import           Data.Time.Clock
 import           Database.SQLite.Simple
-import           Endeavour.Types
+import           Endeavour.Genetics
 
 ---
 

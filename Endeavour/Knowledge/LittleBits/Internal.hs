@@ -18,16 +18,16 @@ module Endeavour.Knowledge.LittleBits.Internal
   , transmit
   ) where
 
-import Endeavour.Types
 import Control.Eff hiding ((:>))
-import Control.Eff.Reader.Lazy
-import Control.Eff.Lift
 import Control.Eff.Exception
+import Control.Eff.Lift
+import Control.Eff.Reader.Lazy
 import Data.Aeson
 import Data.Proxy
+import Data.Text (Text, pack, unpack)
+import Endeavour.Genetics
 import Servant.API
 import Servant.Client
-import Data.Text (Text, pack, unpack)
 
 ---
 
@@ -60,13 +60,12 @@ https://api-http.littlebitscloud.cc/devices/00e04c03b6d6
 data CBStatus = CBStatus { _label :: Text
                          , _id :: Text
                          , _userId :: Int
-                         , _isConnected :: Bool
-                         } deriving (Show, Eq)
+                         , _isConnected :: Bool } deriving (Show, Eq)
 
 instance FromJSON CBStatus where
-  parseJSON (Object v) = CBStatus <$>
-                         v .: "label" <*>
-                         v .: "id" <*>
+  parseJSON (Object v) = CBStatus       <$>
+                         v .: "label"   <*>
+                         v .: "id"      <*>
                          v .: "user_id" <*>
                          v .: "is_connected"
 

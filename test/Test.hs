@@ -5,11 +5,9 @@ import Control.Eff.Lift
 import Control.Eff.Reader.Lazy
 import Data.Text (Text)
 import Database.SQLite.Simple
+import Endeavour.Genetics
 import Endeavour.Knowledge.LittleBits.Internal
 import Endeavour.Memory
-import Endeavour.Types
-import Network.HTTP.Client
-import Network.HTTP.Client.TLS
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -18,10 +16,13 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = do
   c <- open ":memory:"
-  m <- newManager tlsManagerSettings
-  let env = Env c (CloudBit "" "") m
-  defaultMain $ suite env
-  close c
+  env <- genes "/home/colin/code/haskell/endeavour/config.json"
+  case env of
+    Nothing -> putStrLn "Couldn't read config.json" >> close c
+    Just e  -> do
+      close $ _conn e
+      defaultMain $ suite (e { _conn = c })
+      close c
 
 suite :: Env -> TestTree
 suite env = testGroup "Endeavour System Logic Diagnostic"
@@ -43,7 +44,7 @@ instance Assertable (Either a b) where
 doIt :: Env -> Assertion
 doIt e = do
   r <- f
-  r @?= Right (CBStatus "foo" "bar" 1 True)
+  r @?= Right (CBStatus "Computer" (_deviceId $ _cloudbit e) 135545 True)
   where f :: IO (Either Text CBStatus)
         f = runLift . runExc $ runReader status e
 
