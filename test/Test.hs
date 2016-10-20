@@ -30,7 +30,8 @@ suite env = testGroup "Endeavour System Logic Diagnostic"
     [ testCase "IO Isomorphism" $ ioIso env
     ]
   , testGroup "LittleBits Relays"
-    [ testCase "Endpoint: devices/" $ doIt env
+    [ testCase "Endpoint: devices/ID" $ statusT env
+    , testCase "Endpoint: devices/ID/output" $ outputT env
     ]
   ]
 
@@ -41,12 +42,19 @@ assertRight msg (Left _) = assertFailure msg
 instance Assertable (Either a b) where
   assert = assertRight ""
 
-doIt :: Env -> Assertion
-doIt e = do
+statusT :: Env -> Assertion
+statusT e = do
   r <- f
   r @?= Right (CBStatus "Computer" (_deviceId $ _cloudbit e) 135545 True)
   where f :: IO (Either Text CBStatus)
         f = runLift . runExc $ runReader status e
+
+outputT :: Env -> Assertion
+outputT e = do
+  r <- f
+  assert True
+  where f :: IO (Either Text ())
+        f = runLift . runExc $ runReader (emit $ CBOutput 50 3000) e
 
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f

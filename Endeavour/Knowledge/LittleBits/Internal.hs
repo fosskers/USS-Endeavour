@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module    : Endeavour.Knowledge.LittleBits.Internal
@@ -14,7 +15,9 @@
 
 module Endeavour.Knowledge.LittleBits.Internal
   ( CBStatus(..)
+  , CBOutput(..)
   , status
+  , emit
   , transmit
   ) where
 
@@ -69,18 +72,33 @@ instance FromJSON CBStatus where
                          v .: "user_id" <*>
                          v .: "is_connected"
 
-type LBCCApi = "devices" :> Capture "device_id" String :> Header "Authorization" String :> Get '[JSON] CBStatus
+data CBOutput = CBOutput { _percent  :: Int, _duration :: Int }
+
+instance ToJSON CBOutput where
+  toJSON (CBOutput p d) = object ["percent" .= p, "duration_ms" .= d]
+
+type LBCCApi = "v2" :> "devices" :> Capture "device_id" String :> Header "Authorization" String :> Get '[JSON] CBStatus
+  :<|> "v2" :> "devices" :> Capture "device_id" String :> "output" :> Header "Authorization" String :> ReqBody '[JSON] CBOutput :> PostNoContent '[JSON] NoContent
 
 api :: Proxy LBCCApi
 api = Proxy
 
-_device = client api
+_device :<|> _output = client api
+
+emit :: ERL r => CBOutput -> Eff r ()
+emit cbo = do
+  (CloudBit did auth) <- reader _cloudbit
+  fmap (const ()) . transmit . _output (unpack did) (header auth) $ cbo
 
 -- | The current status of the CloudBit.
 status :: ERL r => Eff r CBStatus
 status = do
   (CloudBit did auth) <- reader _cloudbit
-  transmit . _device (unpack did) . Just $ "Bearer " ++ unpack auth
+  transmit . _device (unpack did) $ header auth
+
+-- | Format a header for the CloudBit auth token.
+header :: Text -> Maybe String
+header (unpack -> auth) = Just $ "Bearer " ++ auth
 
 baseUrl :: BaseUrl
 baseUrl = BaseUrl Https "api-http.littlebitscloud.cc" 443 ""
