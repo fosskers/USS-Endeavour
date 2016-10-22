@@ -34,30 +34,6 @@ import Servant.Client
 
 ---
 
-{- SAMPLE RESPONSE
-
-https://api-http.littlebitscloud.cc/devices/00e04c03b6d6
-
-{
- "label": "Computer",
- "id": "00e04c03b6d6",
- "subscriptions": [],
- "subscribers": [
-  {
-   "publisher_id": "00e04c03b6d6",
-   "subscriber_id": "https:\/\/api-ifttt.littlebitscloud.cc\/receive_cloudbit_event\/ignite\/e2520f84f530dcd3305ff3e255f1f9e3f1cf2e6f",
-   "publisher_events": [
-    "amplitude:delta:ignite"
-   ]
-  }
- ],
- "user_id": 135545,
- "is_connected": true,
- "input_interval_ms": 200
-}
-
--}
-
 -- | A CloudBit's current status. Stores less than is actually returned by
 -- the LittleBits Cloud Control.
 data CBStatus = CBStatus { _label :: Text
@@ -72,19 +48,33 @@ instance FromJSON CBStatus where
                          v .: "user_id" <*>
                          v .: "is_connected"
 
-data CBOutput = CBOutput { _percent  :: Int, _duration :: Int }
+-- | Output parameters to send to a CloudBit.
+data CBOutput = CBOutput { _percent  :: Int,  -- ^ 0 to 100.
+                           _duration :: Int   -- ^ In milliseconds.
+                         }
 
 instance ToJSON CBOutput where
   toJSON (CBOutput p d) = object ["percent" .= p, "duration_ms" .= d]
 
-type LBCCApi = "v2" :> "devices" :> Capture "device_id" String :> Header "Authorization" String :> Get '[JSON] CBStatus
-  :<|> "v2" :> "devices" :> Capture "device_id" String :> "output" :> Header "Authorization" String :> ReqBody '[JSON] CBOutput :> PostNoContent '[JSON] NoContent
+type LBCCApi = "v2"
+             :> "devices"
+             :> Capture "device_id" String
+             :> Header "Authorization" String
+             :> Get '[JSON] CBStatus
+           :<|> "v2"
+             :> "devices"
+             :> Capture "device_id" String
+             :> "output"
+             :> Header "Authorization" String
+             :> ReqBody '[JSON] CBOutput
+             :> PostNoContent '[JSON] NoContent
 
 api :: Proxy LBCCApi
 api = Proxy
 
 _device :<|> _output = client api
 
+-- | Cause a CloudBit to emit voltage.
 emit :: ERL r => CBOutput -> Eff r ()
 emit cbo = do
   (CloudBit did auth) <- reader _cloudbit

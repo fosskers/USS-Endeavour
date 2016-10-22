@@ -54,7 +54,7 @@ outputT e = do
   r <- f
   assert True
   where f :: IO (Either Text ())
-        f = runLift . runExc $ runReader (emit $ CBOutput 50 3000) e
+        f = runLift . runExc $ runReader (emit $ CBOutput 100 3000) e
 
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f
