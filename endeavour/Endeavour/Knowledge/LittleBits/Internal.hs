@@ -75,10 +75,10 @@ api = Proxy
 _device :<|> _output = client api
 
 -- | Cause a CloudBit to emit voltage.
-emit :: ERL r => CBOutput -> Eff r ()
-emit cbo = do
+emit :: ERL r => Int -> Int -> Eff r ()
+emit p d = do
   (CloudBit did auth) <- reader _cloudbit
-  fmap (const ()) . transmit . _output (unpack did) (header auth) $ cbo
+  fmap (const ()) . transmit . _output (unpack did) (header auth) $ CBOutput p d
 
 -- | The current status of the CloudBit.
 status :: ERL r => Eff r CBStatus

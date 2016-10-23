@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -18,6 +19,7 @@ import           Control.Eff.Lift
 import           Control.Eff.Reader.Lazy
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import           Data.Void
 import           Database.SQLite.Simple
 import           Lens.Micro
 import           Lens.Micro.Aeson
@@ -35,6 +37,9 @@ type RL r = (Member (Reader Env) r, L r)
 -- | Functions who need the `Exc`, `Reader`, and @Lift IO@ effects.
 type ERL r = (Member (Exc T.Text) r, RL r)
 
+-- | The full effect stack, ordered strategically for interplay with `servant`.
+type Effect = Eff (Reader Env :> Exc T.Text :> Lift IO :> Void)
+
 -- | A <http://littlebits.cc/ LittleBits> CloudBit's device ID and auth token.
 data CloudBit = CloudBit { _deviceId :: T.Text
                          , _auth_tok :: T.Text } deriving (Show)
@@ -46,8 +51,8 @@ data Env = Env { _conn     :: Connection
 
 -- | Given a `FilePath` to a config file, read it and parse out the runtime
 -- environment.
-genes :: FilePath -> IO (Maybe Env)
-genes conf = do
+awaken :: FilePath -> IO (Maybe Env)
+awaken conf = do
   raw <- TIO.readFile conf
   let db   = raw ^? key "db_path" . _String
       iden = raw ^? key "cloud_bit" . key "device_id" . _String
@@ -57,3 +62,7 @@ genes conf = do
           conn <- open $ T.unpack d
           manager <- newManager tlsManagerSettings
           pure $ Env conn (CloudBit i a) manager
+
+-- | Shutdown any session handling in a given `Env`.
+slumber :: Env -> IO ()
+slumber = close . _conn
