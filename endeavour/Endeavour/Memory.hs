@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- |
 -- Module    : Endeavour.Memory
@@ -22,6 +23,7 @@ module Endeavour.Memory
 import           Control.Eff
 import           Control.Eff.Lift
 import           Control.Eff.Reader.Lazy
+import           Data.Aeson
 import qualified Data.Text as T
 import           Data.Time.Clock
 import           Database.SQLite.Simple
@@ -51,6 +53,9 @@ instance FromRow Log where
 
 instance ToRow Log where
   toRow (Log time cat text) = toRow (time, show cat, text)
+
+instance ToJSON Log where
+  toJSON (Log time cat text) = object [ "time" .= time, "category" .= show cat, "text" .= text ]
 
 -- | Create the SQLite table for logs, if necessary.
 wake :: Connection -> IO ()

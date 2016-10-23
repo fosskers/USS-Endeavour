@@ -27,18 +27,24 @@ data Args = Args { config :: FilePath } deriving (Generic)
 instance ParseRecord Args
 
 type API = "lamp" :> Get '[JSON] ()
+  :<|> "log" :> QueryParam "limit" Int :> Get '[JSON] [Log]
 
 api :: Proxy API
 api = Proxy
 
 -- | The request handler functions, all of which operate in the `Effect` Monad.
 serverT :: ServerT API Effect
-serverT = lamp
+serverT = lamp :<|> recall
 
+-- | Conversion logic between our effect stack and the `Handler` Monad.
+-- Catches any errors thrown within the effect stack, writes them to the
+-- ship's DB, and rethrows them into the `Handler` Monad. `Handler` is
+-- just a type alias for `ExceptT`.
 effToHandler' :: Env -> Effect a -> Handler a
 effToHandler' env eff = liftIO (runLift . runExc $ runReader eff env) >>= either f pure
   where f err = liftIO (chronicle' (_conn env) Fail err) >> throwE err404
 
+-- | A Natural Transformation between our effect stack and the `Handler` Monad.
 effToHandler :: Env -> (Effect :~> Handler)
 effToHandler e = Nat (effToHandler' e)
 
