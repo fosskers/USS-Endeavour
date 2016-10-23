@@ -15,6 +15,7 @@ module Endeavour.Memory
   , LogCat(..)
   , wake
   , chronicle
+  , chronicle'
   , recall
   ) where
 
@@ -52,17 +53,20 @@ instance ToRow Log where
   toRow (Log time cat text) = toRow (time, show cat, text)
 
 -- | Create the SQLite table for logs, if necessary.
-wake :: RL r => Eff r ()
-wake = do
-  c <- reader _conn
-  lift $ execute_ c "CREATE TABLE IF NOT EXISTS shiplog (id INTEGER PRIMARY KEY, dt DATETIME, cat TEXT, log TEXT)"
+wake :: Connection -> IO ()
+wake c = execute_ c "CREATE TABLE IF NOT EXISTS shiplog (id INTEGER PRIMARY KEY, dt DATETIME, cat TEXT, log TEXT)"
 
 -- | Log some event message.
 chronicle :: RL r => LogCat -> T.Text -> Eff r ()
 chronicle cat t = do
   c <- reader _conn
-  now <- lift getCurrentTime
-  lift $ execute c "INSERT INTO shiplog (dt, cat, log) VALUES (?, ?, ?)" $ Log now cat t
+  lift $ chronicle' c cat t
+
+-- | Log some event message via the `IO` Monad.
+chronicle' :: Connection -> LogCat -> T.Text -> IO ()
+chronicle' conn cat t = do
+  now <- getCurrentTime
+  execute conn "INSERT INTO shiplog (dt, cat, log) VALUES (?, ?, ?)" $ Log now cat t
 
 -- | Probe the Ship's memory for event logs. An optional limit factor can be
 -- supplied.
