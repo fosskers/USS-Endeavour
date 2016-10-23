@@ -5,9 +5,11 @@
 
 module Main where
 
+import           Control.Concurrent
 import           Control.Eff.Exception
 import           Control.Eff.Lift
 import           Control.Eff.Reader.Lazy
+import qualified Control.Exception as E
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Data.Proxy
@@ -18,6 +20,8 @@ import qualified Network.Wai.Handler.Warp as W
 import           Options.Generic
 import           Servant.API
 import           Servant.Server
+import           System.Exit
+import           System.Posix.Signals hiding (Handler)
 
 ---
 
@@ -63,5 +67,7 @@ main = do
     Just e  -> do
       putStrLn "U.S.S. Endeavour - Computing Core activated."
       wake $ _conn e
-      W.run 8081 $ app e  -- How do we ever exit this?
-      slumber e           -- Catch exceptions, as well as C-c or C-d. How?
+      tid <- myThreadId
+      let h = slumber e >> putStrLn "Shutting down." >> E.throwTo tid ExitSuccess
+      installHandler keyboardSignal (Catch h) Nothing
+      W.run 8081 $ app e
