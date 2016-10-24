@@ -7,7 +7,7 @@
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
--- LittleBits Cloud Control API query logic.
+-- LittleBits CloudBit interaction functions.
 
 module Endeavour.Knowledge.LittleBits where
 

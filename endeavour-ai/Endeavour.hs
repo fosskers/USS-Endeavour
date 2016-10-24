@@ -14,6 +14,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Data.Proxy
 import           Endeavour.Genetics
+import           Endeavour.Knowledge.ChromeCast
 import           Endeavour.Knowledge.LittleBits
 import           Endeavour.Memory
 import qualified Network.Wai.Handler.Warp as W
@@ -32,13 +33,14 @@ instance ParseRecord Args
 
 type API = "lamp" :> Get '[JSON] ()
   :<|> "log" :> QueryParam "limit" Int :> Get '[JSON] [Log]
+  :<|> "cast" :> QueryParam "file" Text :> Get '[JSON] ()
 
 api :: Proxy API
 api = Proxy
 
 -- | The request handler functions, all of which operate in the `Effect` Monad.
 serverT :: ServerT API Effect
-serverT = lamp :<|> recall
+serverT = lamp :<|> recall :<|> cast
 
 -- | Conversion logic between our effect stack and the `Handler` Monad.
 -- Catches any errors thrown within the effect stack, writes them to the
