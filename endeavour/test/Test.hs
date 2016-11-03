@@ -16,9 +16,9 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = do
   c <- open ":memory:"
-  env <- awaken "/home/colin/code/haskell/endeavour/config.json"
+  env <- awaken "/home/colin/code/haskell/endeavour/config.yml"
   case env of
-    Nothing -> putStrLn "Couldn't read config.json" >> close c
+    Nothing -> putStrLn "Couldn't read config.yml" >> close c
     Just e  -> do
       close $ _conn e
       defaultMain $ suite (e { _conn = c })

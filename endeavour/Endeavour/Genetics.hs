@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module    : Endeavour.Genetics
@@ -17,9 +18,10 @@ import           Control.Eff
 import           Control.Eff.Exception
 import           Control.Eff.Lift
 import           Control.Eff.Reader.Lazy
+import           Data.Aeson (Value)
 import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 import           Data.Void
+import           Data.Yaml (decodeFile)
 import           Database.SQLite.Simple
 import           Lens.Micro
 import           Lens.Micro.Aeson
@@ -53,10 +55,10 @@ data Env = Env { _conn     :: Connection
 -- environment.
 awaken :: FilePath -> IO (Maybe Env)
 awaken conf = do
-  raw <- TIO.readFile conf
-  let db   = raw ^? key "db_path" . _String
-      iden = raw ^? key "cloud_bit" . key "device_id" . _String
-      auth = raw ^? key "cloud_bit" . key "auth_token" . _String
+  raw <- decodeFile @Value conf
+  let db   = raw ^? _Just . key "db_path" . _String
+      iden = raw ^? _Just . key "cloud_bit" . key "device_id" . _String
+      auth = raw ^? _Just . key "cloud_bit" . key "auth_token" . _String
   sequence $ f <$> db <*> iden <*> auth  -- clever
   where f d i a = do
           conn <- open $ T.unpack d

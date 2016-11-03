@@ -34,6 +34,7 @@ library
                      , sqlite-simple >= 0.4 && < 0.5
                      , text >=1.2 && <1.3
                      , time
+                     , yaml >= 0.8 && < 0.9
 
   -- hs-source-dirs:
   default-language:    Haskell2010
