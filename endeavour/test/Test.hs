@@ -16,7 +16,7 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = do
   c <- open ":memory:"
-  env <- genes "/home/colin/code/haskell/endeavour/config.json"
+  env <- awaken "/home/colin/code/haskell/endeavour/config.json"
   case env of
     Nothing -> putStrLn "Couldn't read config.json" >> close c
     Just e  -> do
@@ -59,7 +59,7 @@ outputT e = do
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f
   where f = do
-          wake
+          reader _conn >>= lift . wake
           chronicle Info "chronicle"
           ((Log _ cat t):_) <- recall Nothing
           lift ((cat, t) @?= (Info, "chronicle"))
