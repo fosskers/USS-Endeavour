@@ -44,12 +44,13 @@ type Effect = Eff (Reader Env :> Exc T.Text :> Lift IO :> Void)
 
 -- | A <http://littlebits.cc/ LittleBits> CloudBit's device ID and auth token.
 data CloudBit = CloudBit { _deviceId :: T.Text
-                         , _auth_tok :: T.Text } deriving (Show)
+                         , _authTok :: T.Text } deriving (Show)
 
 -- | The Endeavour's runtime environment.
 data Env = Env { _conn     :: Connection
                , _cloudbit :: CloudBit
-               , _manager  :: Manager }
+               , _manager  :: Manager
+               , _media    :: T.Text }
 
 -- | Given a `FilePath` to a config file, read it and parse out the runtime
 -- environment.
@@ -59,11 +60,12 @@ awaken conf = do
   let db   = raw ^? _Just . key "db_path" . _String
       iden = raw ^? _Just . key "cloud_bit" . key "device_id" . _String
       auth = raw ^? _Just . key "cloud_bit" . key "auth_token" . _String
-  sequence $ f <$> db <*> iden <*> auth  -- clever
-  where f d i a = do
+      meda = raw ^? _Just . key "media_path" . _String
+  sequence $ f <$> db <*> iden <*> auth <*> meda  -- clever
+  where f d i a m = do
           conn <- open $ T.unpack d
           manager <- newManager tlsManagerSettings
-          pure $ Env conn (CloudBit i a) manager
+          pure $ Env conn (CloudBit i a) manager m
 
 -- | Shutdown any session handling in a given `Env`.
 slumber :: Env -> IO ()

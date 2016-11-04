@@ -33,7 +33,7 @@ instance ParseRecord Args
 
 type API = "lamp" :> Get '[JSON] ()
   :<|> "log" :> QueryParam "limit" Int :> Get '[JSON] [Log]
-  :<|> "cast" :> QueryParam "file" Text :> Get '[JSON] ()
+  :<|> "cast" :> Capture "file" Text :> Get '[JSON] ()
 
 api :: Proxy API
 api = Proxy

@@ -4,7 +4,8 @@ packages:
   - './endeavour'
   - './endeavour-ai'
 
-extra-deps: []
+extra-deps:
+  - 'fuzzy-0.1.0.0'
 
 # Override default flag values for local packages and extra-deps
 flags: {}

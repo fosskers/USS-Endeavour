@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 -- |
 -- Module    : Endeavour.Memory
@@ -49,7 +48,7 @@ data LogCat = Info | Warn | Fail deriving (Eq, Read, Show)
 data Log = Log UTCTime LogCat T.Text deriving (Show)
 
 instance FromRow Log where
-  fromRow = Log <$> field <*> (fmap read field) <*> field
+  fromRow = Log <$> field <*> fmap read field <*> field
 
 instance ToRow Log where
   toRow (Log time cat text) = toRow (time, show cat, text)

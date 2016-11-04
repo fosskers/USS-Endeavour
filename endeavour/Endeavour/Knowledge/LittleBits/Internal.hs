@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -25,6 +24,7 @@ import Control.Eff hiding ((:>))
 import Control.Eff.Exception
 import Control.Eff.Lift
 import Control.Eff.Reader.Lazy
+import Control.Monad (void)
 import Data.Aeson
 import Data.Proxy
 import Data.Text (Text, pack, unpack)
@@ -78,7 +78,7 @@ _device :<|> _output = client api
 emit :: ERL r => CBOutput -> Eff r ()
 emit cbo = do
   (CloudBit did auth) <- reader _cloudbit
-  fmap (const ()) . transmit $ _output (unpack did) (header auth) cbo
+  void . transmit $ _output (unpack did) (header auth) cbo
 
 -- | The current status of the CloudBit.
 status :: ERL r => Eff r CBStatus
