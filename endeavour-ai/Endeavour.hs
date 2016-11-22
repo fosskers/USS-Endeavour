@@ -68,8 +68,9 @@ main = do
     Nothing -> putStrLn "Failed to parse config file."
     Just e  -> do
       putStrLn "U.S.S. Endeavour - Computing Core activated."
+      putStrLn $ "Listening on Port " ++ show (_port e) ++ "..."
       wake $ _conn e
       tid <- myThreadId
       let h = slumber e >> putStrLn "Shutting down." >> E.throwTo tid ExitSuccess
       installHandler keyboardSignal (Catch h) Nothing
-      W.run 8081 $ app e
+      W.run (_port e) $ app e

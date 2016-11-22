@@ -50,7 +50,8 @@ data CloudBit = CloudBit { _deviceId :: T.Text
 data Env = Env { _conn     :: Connection
                , _cloudbit :: CloudBit
                , _manager  :: Manager
-               , _media    :: T.Text }
+               , _media    :: T.Text
+               , _port     :: Int }
 
 -- | Given a `FilePath` to a config file, read it and parse out the runtime
 -- environment.
@@ -61,11 +62,12 @@ awaken conf = do
       iden = raw ^? _Just . key "cloud_bit" . key "device_id" . _String
       auth = raw ^? _Just . key "cloud_bit" . key "auth_token" . _String
       meda = raw ^? _Just . key "media_path" . _String
-  sequence $ f <$> db <*> iden <*> auth <*> meda  -- clever
-  where f d i a m = do
+      port = raw ^? _Just . key "port" . _Integral
+  sequence $ f <$> db <*> iden <*> auth <*> meda <*> port  -- clever
+  where f d i a m p = do
           conn <- open $ T.unpack d
           manager <- newManager tlsManagerSettings
-          pure $ Env conn (CloudBit i a) manager m
+          pure $ Env conn (CloudBit i a) manager m p
 
 -- | Shutdown any session handling in a given `Env`.
 slumber :: Env -> IO ()
