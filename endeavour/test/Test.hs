@@ -61,5 +61,5 @@ ioIso = runLift . runReader f
   where f = do
           reader _conn >>= lift . wake
           chronicle Info "chronicle"
-          ((Log _ cat t):_) <- recall Nothing
+          (Log _ cat t : _) <- recall Nothing
           lift ((cat, t) @?= (Info, "chronicle"))

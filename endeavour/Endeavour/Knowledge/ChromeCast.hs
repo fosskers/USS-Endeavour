@@ -13,7 +13,6 @@ module Endeavour.Knowledge.ChromeCast
   ( cast
   ) where
 
-import           Control.Concurrent
 import           Control.Eff
 import           Control.Eff.Exception
 import           Control.Eff.Lift
@@ -38,10 +37,8 @@ cast :: ERL r => Text -> Eff r ()
 cast f = do
   toCast <- fileToCast f
   chronicle Info $ "Casting " <> toCast
-  void . effShelly "Failed to stream to ChromeCast." . asyncSh $ do
-    run_ "castnow" [toCast, "--quiet"]
-    liftIO $ putStrLn "Yeah!!!"
-    liftIO (myThreadId >>= killThread) -- Kill thread after casting completes.
+  void . effShelly "Failed to stream to ChromeCast." . asyncSh $
+    run_ "stream2chromecast" [toCast]
 
 -- | Execute a Shelly command, smothering any thrown exceptions in `Maybe`.
 maybeSh :: Sh a -> IO (Maybe a)
