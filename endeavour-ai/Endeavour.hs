@@ -31,7 +31,8 @@ data Args = Args { config :: FilePath } deriving (Generic)
 
 instance ParseRecord Args
 
-type API = "lamp" :> Get '[JSON] ()
+type API = "lb" :> "lamp" :> Get '[JSON] ()
+  :<|> "lb" :> "status" :> Get '[JSON] CBStatus
   :<|> "log" :> QueryParam "limit" Int :> Get '[JSON] [Log]
   :<|> "cast" :> Capture "file" Text :> Get '[JSON] ()
 
@@ -40,7 +41,7 @@ api = Proxy
 
 -- | The request handler functions, all of which operate in the `Effect` Monad.
 serverT :: ServerT API Effect
-serverT = lamp :<|> recall :<|> cast
+serverT = lamp :<|> status :<|> recall :<|> cast
 
 -- | Conversion logic between our effect stack and the `Handler` Monad.
 -- Catches any errors thrown within the effect stack, writes them to the

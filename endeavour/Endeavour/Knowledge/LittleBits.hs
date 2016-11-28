@@ -9,7 +9,11 @@
 --
 -- LittleBits CloudBit interaction functions.
 
-module Endeavour.Knowledge.LittleBits where
+module Endeavour.Knowledge.LittleBits
+  ( CBStatus(..)
+  , status
+  , lamp
+  ) where
 
 import Control.Eff
 import Endeavour.Genetics

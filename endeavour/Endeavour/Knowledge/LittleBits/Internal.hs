@@ -41,6 +41,12 @@ data CBStatus = CBStatus { _label :: Text
                          , _userId :: Int
                          , _isConnected :: Bool } deriving (Show, Eq)
 
+instance ToJSON CBStatus where
+  toJSON (CBStatus l i u c) = object [ "label" .= l
+                                     , "id" .= i
+                                     , "user_id" .= u
+                                     , "is_connected" .= c ]
+
 instance FromJSON CBStatus where
   parseJSON (Object v) = CBStatus       <$>
                          v .: "label"   <*>
