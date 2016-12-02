@@ -17,18 +17,16 @@ module Endeavour.Knowledge.LittleBits.Internal
   , CBOutput(..)
   , status
   , emit
-  , transmit
   ) where
 
 import Control.Eff hiding ((:>))
-import Control.Eff.Exception
-import Control.Eff.Lift
 import Control.Eff.Reader.Lazy
 import Control.Monad (void)
 import Data.Aeson
 import Data.Proxy
-import Data.Text (Text, pack, unpack)
+import Data.Text (Text, unpack)
 import Endeavour.Genetics
+import Endeavour.Knowledge.Util
 import Servant.API
 import Servant.Client
 
@@ -84,13 +82,13 @@ _device :<|> _output = client api
 emit :: ERL r => CBOutput -> Eff r ()
 emit cbo = do
   (CloudBit did auth) <- reader _cloudbit
-  void . transmit $ _output (unpack did) (header auth) cbo
+  void . transmit baseUrl $ _output (unpack did) (header auth) cbo
 
 -- | The current status of the CloudBit.
 status :: ERL r => Eff r CBStatus
 status = do
   (CloudBit did auth) <- reader _cloudbit
-  transmit . _device (unpack did) $ header auth
+  transmit baseUrl . _device (unpack did) $ header auth
 
 -- | Format a header for the CloudBit auth token.
 header :: Text -> Maybe String
@@ -98,12 +96,3 @@ header (unpack -> auth) = Just $ "Bearer " ++ auth
 
 baseUrl :: BaseUrl
 baseUrl = BaseUrl Https "api-http.littlebitscloud.cc" 443 ""
-
--- | Make some call to an external API.
-transmit :: ERL r => ClientM a -> Eff r a
-transmit m = do
-  manager <- reader _manager
-  res <- lift $ runClientM m (ClientEnv manager baseUrl)
-  case res of
-    Left err -> throwExc . pack $ show err
-    Right r  -> pure r

@@ -16,18 +16,22 @@ library
   exposed-modules:     Endeavour.Memory
                      , Endeavour.Genetics
                      , Endeavour.Knowledge.ChromeCast
+                     , Endeavour.Knowledge.Hue
                      , Endeavour.Knowledge.LittleBits
                      , Endeavour.Knowledge.LittleBits.Internal
+                     , Endeavour.Knowledge.Util
 
   -- other-extensions:
   build-depends:       base >=4.9 && <4.10
                      , aeson >= 1.0 && < 1.1
                      , async >= 2.1 && < 2.2
+                     , containers
                      , extensible-effects >= 1.11 && < 1.12
                      , fuzzy >= 0.1 && < 0.2
                      , http-client >= 0.5 && < 0.6
                      , http-client-tls >= 0.3 && < 0.4
                      , microlens >= 0.4 && < 0.5
+                     , microlens-th >= 0.4 && < 0.5
                      , microlens-aeson >= 2.1 && < 2.2
                      , servant >= 0.9 && < 0.10
                      , servant-client >= 0.9 && < 0.10
@@ -45,6 +49,7 @@ test-suite endeavour-test
   type:                exitcode-stdio-1.0
 
   build-depends:       base >=4.9 && <4.10
+                     , containers
                      , endeavour
                      , extensible-effects
                      , sqlite-simple
