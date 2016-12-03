@@ -131,13 +131,13 @@ overLight f lid = do
 -- | Turn a light on.
 lightOn :: ERL r => Int -> Eff r ()
 lightOn = overLight f
-  where f l@(Light { _on = Left False }) = l { _on = Right True }
+  where f l@Light { _on = Left False } = l { _on = Right True }
         f l = l
 
 -- | Turn a light off.
 lightOff :: ERL r => Int -> Eff r ()
 lightOff = overLight f
-  where f l@(Light { _on = Left True }) = l { _on = Right False }
+  where f l@Light { _on = Left True } = l { _on = Right False }
         f l = l
 
 -- | Set a light's brightness.
@@ -146,7 +146,7 @@ lightBri b = overLight (& bri .~ b)
 
 -- | Set the brightness, as a percent of its maximum (254).
 lightBri' :: ERL r => Float -> Int -> Eff r ()
-lightBri' p = overLight (& bri .~ (round $ 254 * p))
+lightBri' p = overLight (& bri .~ round (254 * p))
 
 -- | Set the brightness, as a percent of its current value.
 lightBri'' :: ERL r => Float -> Int -> Eff r ()
