@@ -17,6 +17,7 @@ library
                      , Endeavour.Genetics
                      , Endeavour.Knowledge.ChromeCast
                      , Endeavour.Knowledge.Hue
+                     , Endeavour.Knowledge.Hue.Internal
                      , Endeavour.Knowledge.LittleBits
                      , Endeavour.Knowledge.LittleBits.Internal
                      , Endeavour.Knowledge.Util
