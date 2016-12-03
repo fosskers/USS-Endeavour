@@ -4,7 +4,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 module Endeavour.Knowledge.Hue where
 
@@ -18,7 +17,6 @@ import Data.Text (Text, unpack)
 import Data.Word
 import Endeavour.Genetics
 import Endeavour.Knowledge.Util
-import GHC.Generics
 import Lens.Micro
 import Lens.Micro.TH
 import Servant.API
@@ -43,17 +41,6 @@ JSON object with the entire new state over?
 
 -}
 
--- | A reduced representation of a Phillips Hue light.
-data Light = Light { _lname :: Text
-                   , _on    :: Bool
-                   , _state :: LState } deriving (Eq, Show)
-
-instance FromJSON Light where
-  parseJSON (Object v) = Light   <$>
-    v  .: "name"                 <*>
-    (v .: "state" >>= (.: "on")) <*>
-    v  .: "state"
-
 -- | Special effects that a light can perform.
 data LightEffect = NoEffect | ColourLoop | Flash deriving (Eq, Show)
 
@@ -65,28 +52,37 @@ instance FromJSON LightEffect where
   parseJSON (String "colorloop") = pure ColourLoop
   parseJSON _ = pure NoEffect
 
--- | The state of a `Light`. Note that "on-ness" isn't recorded here,  since
--- `LState`s are meant to be serialized and sent frequently to the Bridge.
--- According to Phillips, constantly resending @{"on":true}@ when a light is
--- already on slows the responsiveness of the Bridge.
-data LState = LState { bri    :: Word8
-                     , hue    :: Word16
-                     , sat    :: Word8
-                     , effect :: LightEffect } deriving (Eq, Show, Generic)
-makeLensesFor [("bri", "briL"), ("hue", "hueL"), ("sat", "satL")] ''LState
+-- | A simplified representation of a Phillips Hue light.
+data Light = Light { _on     :: Either Bool Bool
+                   , _bri    :: Word8
+                   , _hue    :: Word16
+                   , _sat    :: Word8
+                   , _effect :: LightEffect } deriving (Eq, Show)
+makeLenses ''Light
 
-instance ToJSON LState
-instance FromJSON LState
+instance FromJSON Light where
+  parseJSON (Object v) = (v .: "state") >>= \s ->
+    Light                      <$>
+    fmap Left (s .: "on")      <*>
+    s .: "bri"                 <*>
+    s .: "hue"                 <*>
+    s .: "sat"                 <*>
+    s .: "effect"
 
-foo :: LState
-foo = LState 254 20000 254 NoEffect
+-- | Only encode the @on@ field if there was a change. This change is
+-- reflected in the transformation from `Left` to `Right`. Not passing @on@
+-- when you don't need to reduces load on the Bridge.
+instance ToJSON Light where
+  toJSON (Light o b h s e) = object $ o' o ++ [ "bri" .= b, "hue" .= h, "sat" .= s, "effect" .= e ]
+    where o' (Right b) = [ "on" .= b ]  -- A change occurred.
+          o' _ = []
 
 data Group = Group { _gid    :: Int
                    , _gname  :: Text
                    , _lights :: [Light]
                    , _allOn  :: Bool
                    , _anyOn  :: Bool
-                   , _action :: LState } deriving (Eq, Show)
+                   , _action :: Light } deriving (Eq, Show)
 
 data Colour = Red | Yellow | Green | Blue | Magenta deriving (Eq, Show, Ord, Enum)
 
@@ -94,7 +90,7 @@ type HueApi = "api" :> Capture "uid" Text :> LApi
 
 type LApi = "lights" :> Get '[JSON] (Map Text Light)
   :<|> "lights" :> Capture "lid" Int :> Get '[JSON] Light
-  :<|> "lights" :> Capture "lid" Int :> "state" :> ReqBody '[JSON] LState :> Put '[JSON] NoContent
+  :<|> "lights" :> Capture "lid" Int :> "state" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
 
 api :: Proxy HueApi
 api = Proxy
@@ -102,7 +98,7 @@ api = Proxy
 handlers :: Text
   -> ClientM (Map Text Light)
   :<|> (Int -> ClientM Light)
-  :<|> (Int -> LState -> ClientM NoContent)
+  :<|> (Int -> Light -> ClientM NoContent)
 handlers = client api
 
 -- | The URL (likely an IP address) of the Hue Bridge on the home network.
@@ -123,21 +119,50 @@ lights = do
   let (f :<|> _) = handlers hu
   transmit (bridgeUrl hi) f
 
-bri2 :: ERL r => Word8 -> Eff r ()
-bri2 b = do
+-- | A function over a light, across a network.
+overLight :: ERL r => (Light -> Light) -> Int -> Eff r ()
+overLight f lid = do
   hu <- reader _hueUser
   hi <- reader _hueIp
-  let (_ :<|> f :<|> g) = handlers hu
-  ls <- fmap _state . transmit (bridgeUrl hi) $ f 2
-  void . transmit (bridgeUrl hi) . g 2 $ (ls & briL .~ b)
+  let (_ :<|> g :<|> h) = handlers hu
+  l <- transmit (bridgeUrl hi) $ g lid
+  void . transmit (bridgeUrl hi) . h lid $ f l
 
-hue2 :: ERL r => Word16 -> Eff r ()
-hue2 b = do
-  hu <- reader _hueUser
-  hi <- reader _hueIp
-  let (_ :<|> f :<|> g) = handlers hu
-  ls <- fmap _state . transmit (bridgeUrl hi) $ f 2
-  void . transmit (bridgeUrl hi) . g 2 $ (ls & hueL .~ b)
+-- | Turn a light on.
+lightOn :: ERL r => Int -> Eff r ()
+lightOn = overLight f
+  where f l@(Light { _on = Left False }) = l { _on = Right True }
+        f l = l
+
+-- | Turn a light off.
+lightOff :: ERL r => Int -> Eff r ()
+lightOff = overLight f
+  where f l@(Light { _on = Left True }) = l { _on = Right False }
+        f l = l
+
+-- | Set a light's brightness.
+lightBri :: ERL r => Word8 -> Int -> Eff r ()
+lightBri b = overLight (& bri .~ b)
+
+-- | Set the brightness, as a percent of its maximum (254).
+lightBri' :: ERL r => Float -> Int -> Eff r ()
+lightBri' p = overLight (& bri .~ (round $ 254 * p))
+
+-- | Set the brightness, as a percent of its current value.
+lightBri'' :: ERL r => Float -> Int -> Eff r ()
+lightBri'' p = overLight (& bri %~ (\n -> round $ fromIntegral n * p))
+
+-- | Set a light's hue.
+lightHue :: ERL r => Word16 -> Int -> Eff r ()
+lightHue h = overLight (& hue .~ h)
+
+-- | Set the saturation, as a percent of its maximum (254).
+
+lightSat :: ERL r => Word8 -> Int -> Eff r ()
+lightSat s = overLight (& sat .~ s)
+
+lightEffect :: ERL r => LightEffect -> Int -> Eff r ()
+lightEffect e = overLight (& effect .~ e)
 
 groups :: ERL r => Eff r [Group]
 groups = undefined
@@ -155,13 +180,3 @@ groupOn = undefined
 
 groupOff :: ERL r => Group -> Eff r ()
 groupOff = undefined
-
-lightOn :: ERL r => Light -> Eff r ()
-lightOn = undefined
-
-lightOff :: ERL r => Light -> Eff r ()
-lightOff = undefined
-
--- | Set the brightness, as a percent of its maximum (254).
-lightBri :: ERL r => Int -> Light -> Eff r ()
-lightBri = undefined

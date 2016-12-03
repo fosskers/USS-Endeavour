@@ -65,7 +65,7 @@ outputT :: Env -> Assertion
 outputT e = runT e . emit $ CBOutput 100 3000
 
 briT :: Env -> Assertion
-briT e = runT e $ bri2 128
+briT e = runT e $ lightOn 2 >> lightBri 128 2 >> lightBri 200 2 >> lightOff 2
 
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f
