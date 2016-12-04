@@ -17,19 +17,35 @@ module Endeavour.Knowledge.Hue
   ( -- * Lights
     Light(..)
     -- ** Light Status
+  , light
   , lights
     -- ** Light Controls
+  , allOn, allOff
   , lightOn, lightOff
   , lightBri, lightBri'
+  , lightSat, lightSat'
+  , lightHue, lightHue'
+    -- * Colours
+  , Colour(..)
+  , colours
   ) where
 
-import Control.Eff
-import Data.Word
-import Endeavour.Genetics
-import Endeavour.Knowledge.Hue.Internal
-import Lens.Micro
+import           Control.Eff
+import qualified Data.Map.Lazy as M
+import           Data.Maybe (fromJust)
+import           Data.Word
+import           Endeavour.Genetics
+import           Endeavour.Knowledge.Hue.Internal
+import           Lens.Micro
 
 ---
+
+data Colour = Red | Yellow | Green | Blue | Magenta deriving (Eq, Show, Ord, Enum)
+
+-- | A correspondance between human identifiable colours and their integer
+-- hue value that the bulbs use.
+colours :: M.Map Colour Word16
+colours = M.fromList $ zip [Red ..] [ 0, 12750, 25500, 46920, 56100 ]
 
 -- | Turn a light on.
 lightOn :: ERL r => Int -> Eff r ()
@@ -53,14 +69,21 @@ lightBri p = overLight (& bri .~ round (254 * p))
 lightBri' :: ERL r => Float -> Int -> Eff r ()
 lightBri' p = overLight (& bri %~ (\n -> round $ fromIntegral n * p))
 
--- | Set a light's hue.
-lightHue :: ERL r => Word16 -> Int -> Eff r ()
-lightHue h = overLight (& hue .~ h)
+-- | Set a light's `Colour`.
+lightHue :: ERL r => Colour -> Int -> Eff r ()
+lightHue = lightHue' . fromJust . flip M.lookup colours
+
+-- | Set a light's hue value.
+lightHue' :: ERL r => Word16 -> Int -> Eff r ()
+lightHue' h = overLight (& hue .~ h)
 
 -- | Set the saturation, as a percent of its maximum (254).
+lightSat :: ERL r => Float -> Int -> Eff r ()
+lightSat p = overLight (& sat .~ round (254 * p))
 
-lightSat :: ERL r => Word8 -> Int -> Eff r ()
-lightSat s = overLight (& sat .~ s)
+-- | Set the saturation, as a percent of its current value.
+lightSat' :: ERL r => Float -> Int -> Eff r ()
+lightSat' p = overLight (& sat %~ (\n -> round $ fromIntegral n * p))
 
 lightEffect :: ERL r => LightEffect -> Int -> Eff r ()
 lightEffect e = overLight (& effect .~ e)
@@ -70,11 +93,11 @@ groups = undefined
 
 -- | Turn all the lights on.
 allOn :: ERL r => Eff r ()
-allOn = undefined
+allOn = lights >>= mapM_ lightOn . M.keys
 
 -- | Turn all the lights off.
 allOff :: ERL r => Eff r ()
-allOff = undefined
+allOff = lights >>= mapM_ lightOff . M.keys
 
 groupOn :: ERL r => Group -> Eff r ()
 groupOn = undefined

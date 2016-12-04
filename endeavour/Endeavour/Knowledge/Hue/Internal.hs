@@ -18,9 +18,8 @@ module Endeavour.Knowledge.Hue.Internal
     Light(..)
   , LightEffect(..)
   , Group(..)
-  , Colour(..)
     -- * Functions
-  , colours
+  , light
   , lights
   , overLight
     -- * Lenses
@@ -31,7 +30,7 @@ import Control.Eff hiding ((:>))
 import Control.Eff.Reader.Lazy
 import Control.Monad (void)
 import Data.Aeson
-import Data.Map.Lazy (Map, fromList)
+import Data.Map.Lazy (Map, mapKeys)
 import Data.Proxy
 import Data.Text (Text, unpack)
 import Data.Word
@@ -79,53 +78,67 @@ instance ToJSON Light where
     where o' (Right b) = [ "on" .= b ]  -- A change occurred.
           o' _ = []
 
-data Group = Group { _gid    :: Int
-                   , _gname  :: Text
-                   , _lights :: [Light]
-                   , _allOn  :: Bool
-                   , _anyOn  :: Bool
+data Group = Group { _gname  :: Text
+                   , _lights :: [Int]
                    , _action :: Light } deriving (Eq, Show)
 
-data Colour = Red | Yellow | Green | Blue | Magenta deriving (Eq, Show, Ord, Enum)
+instance FromJSON Group where
+  parseJSON (Object v) = Group       <$>
+    v .: "name"                      <*>
+    ((map read) <$> (v .: "lights")) <*>
+    v .: "action"
 
-type HueApi = "api" :> Capture "uid" Text :> LApi
+type API =
+  "api" :> Capture "uid" Text :> "lights" :> Get '[JSON] (Map Text Light)
+  :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Int :> Get '[JSON] Light
+  :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Int :> "state" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
+  :<|> "api" :> Capture "uid" Text :> "groups" :> Get '[JSON] (Map Text Group)
+  :<|> "api" :> Capture "uid" Text :> "groups" :> Capture "gid" Int :> Get '[JSON] Group
+  :<|> "api" :> Capture "uid" Text :> "groups" :> Capture "gid" Int :> "action" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
 
-type LApi = "lights" :> Get '[JSON] (Map Text Light)
-  :<|> "lights" :> Capture "lid" Int :> Get '[JSON] Light
-  :<|> "lights" :> Capture "lid" Int :> "state" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
-
-api :: Proxy HueApi
+api :: Proxy API
 api = Proxy
 
-handlers :: Text
-  -> ClientM (Map Text Light)
-  :<|> (Int -> ClientM Light)
-  :<|> (Int -> Light -> ClientM NoContent)
-handlers = client api
+-- TODO Can these functions, surrounded by parens, take a parameter?
+-- `(foo :<|> bar) text = client api`
+-- And if so, what does that mean for functionality? How are they called?
+-- | Pattern match our way to our handler functions.
+getLights :<|> getLight :<|> setLight :<|> getGroups :<|> getGroup :<|> setGroup = client api
 
 -- | The URL (likely an IP address) of the Hue Bridge on the home network.
 -- This IP must be set in the external YAML config.
 bridgeUrl :: Text -> BaseUrl
 bridgeUrl (unpack -> u) = BaseUrl Http u 80 ""
 
--- | A correspondance between human identifiable colours and their integer
--- hue value that the bulbs use.
-colours :: Map Colour Int
-colours = fromList $ zip [Red ..] [ 0, 12750, 25500, 46920, 56100 ]
-
--- | All the lights in the network.
-lights :: ERL r => Eff r (Map Text Light)
-lights = do
+-- | Make a call to the Bridge.
+toBridge :: ERL r => (Text -> ClientM a) -> Eff r a
+toBridge c = do
   hu <- reader _hueUser
   hi <- reader _hueIp
-  let (f :<|> _) = handlers hu
-  transmit (bridgeUrl hi) f
+  transmit (bridgeUrl hi) $ c hu
+
+-- | A `Light`, from its ID.
+light :: ERL r => Int -> Eff r Light
+light lid = toBridge $ flip getLight lid
+
+-- | All the lights in the network.
+lights :: ERL r => Eff r (Map Int Light)
+lights = toBridge getLights >>= pure . mapKeys (read . unpack)
 
 -- | A function over a light, across a network.
 overLight :: ERL r => (Light -> Light) -> Int -> Eff r ()
-overLight f lid = do
+overLight f lid = light lid >>= void . toBridge . (\l t -> setLight t lid l) . f
+
+{-}
+group :: ERL r => Int -> Eff r Group
+group gid = do
   hu <- reader _hueUser
-  hi <- reader _hueIp
-  let (_ :<|> g :<|> h) = handlers hu
-  l <- transmit (bridgeUrl hi) $ g lid
-  void . transmit (bridgeUrl hi) . h lid $ f l
+  let (_ :<|> f :<|> _) = gHandlers hu
+  toBridge $ f gid
+
+groups :: ERL r => Eff r (Map Int Group)
+groups = do
+  hu <- reader _hueUser
+  let (f :<|> _) = gHandlers hu
+  mapKeys (read . unpack) <$> toBridge f
+-}
