@@ -19,11 +19,11 @@ module Endeavour.Knowledge.Hue.Internal
   , LightEffect(..)
   , Group(..)
     -- * Functions
-  , light
-  , lights
-  , overLight
+  , light, lights, overLight
+  , group, groups, overGroup
     -- * Lenses
   , on, bri, hue, sat, effect
+  , gname, glights, gaction
   ) where
 
 import Control.Eff hiding ((:>))
@@ -79,8 +79,9 @@ instance ToJSON Light where
           o' _ = []
 
 data Group = Group { _gname  :: Text
-                   , _lights :: [Int]
-                   , _action :: Light } deriving (Eq, Show)
+                   , _glights :: [Int]
+                   , _gaction :: Light } deriving (Eq, Show)
+makeLenses ''Group
 
 instance FromJSON Group where
   parseJSON (Object v) = Group       <$>
@@ -94,16 +95,12 @@ type API =
   :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Int :> "state" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
   :<|> "api" :> Capture "uid" Text :> "groups" :> Get '[JSON] (Map Text Group)
   :<|> "api" :> Capture "uid" Text :> "groups" :> Capture "gid" Int :> Get '[JSON] Group
-  :<|> "api" :> Capture "uid" Text :> "groups" :> Capture "gid" Int :> "action" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
 
 api :: Proxy API
 api = Proxy
 
--- TODO Can these functions, surrounded by parens, take a parameter?
--- `(foo :<|> bar) text = client api`
--- And if so, what does that mean for functionality? How are they called?
 -- | Pattern match our way to our handler functions.
-getLights :<|> getLight :<|> setLight :<|> getGroups :<|> getGroup :<|> setGroup = client api
+getLights :<|> getLight :<|> setLight :<|> getGroups :<|> getGroup = client api
 
 -- | The URL (likely an IP address) of the Hue Bridge on the home network.
 -- This IP must be set in the external YAML config.
@@ -119,26 +116,25 @@ toBridge c = do
 
 -- | A `Light`, from its ID.
 light :: ERL r => Int -> Eff r Light
-light lid = toBridge $ flip getLight lid
+light = toBridge . flip getLight
 
 -- | All the lights in the network.
 lights :: ERL r => Eff r (Map Int Light)
-lights = toBridge getLights >>= pure . mapKeys (read . unpack)
+lights = mapKeys (read . unpack) <$> toBridge getLights
 
 -- | A function over a light, across a network.
 overLight :: ERL r => (Light -> Light) -> Int -> Eff r ()
 overLight f lid = light lid >>= void . toBridge . (\l t -> setLight t lid l) . f
 
-{-}
+-- | A `Group`, from its ID.
 group :: ERL r => Int -> Eff r Group
-group gid = do
-  hu <- reader _hueUser
-  let (_ :<|> f :<|> _) = gHandlers hu
-  toBridge $ f gid
+group = toBridge . flip getGroup
 
+-- | All the groups in the network.
 groups :: ERL r => Eff r (Map Int Group)
-groups = do
-  hu <- reader _hueUser
-  let (f :<|> _) = gHandlers hu
-  mapKeys (read . unpack) <$> toBridge f
--}
+groups = mapKeys (read . unpack) <$> toBridge getGroups
+
+-- | Given a function which transforms a `Light`, perform
+-- that action on all lights in a `Group`.
+overGroup :: ERL r => (Light -> Light) -> Int -> Eff r ()
+overGroup f g = group g >>= mapM_ (overLight f) . _glights

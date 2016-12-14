@@ -1,9 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators #-}
 
 -- |
 -- Module    : Endeavour.Knowledge.Hue
@@ -16,15 +11,34 @@
 module Endeavour.Knowledge.Hue
   ( -- * Lights
     Light(..)
+  , LightEffect(..)
     -- ** Light Status
-  , light
-  , lights
+  , light, lights
+  , group, groups
     -- ** Light Controls
-  , allOn, allOff
+    -- | The core transformations that affect `Light`s are all pure. To "run"
+    -- a transformation, use the `overLight` function:
+    --
+    -- > turnItOn :: ERL r => Int -> Eff r ()
+    -- > turnItOn = overLight lightOn
+    --
+    -- This will apply the change across the network to the `Light` whose
+    -- id you pass in as the `Int`. Efficiently applying multiple transformations
+    -- to a single `Light` is also easy:
+    --
+    -- > dimBlue :: ERL r => Int -> Eff r ()
+    -- > dimBlue = overLight (lightHue Blue . lightBri 10)
+    --
+    -- To run transformations across light `Group`s, use `overGroup`:
+    --
+    -- > makeGroupRed :: ERL r => Int -> Eff r ()
+    -- > makeGroupRed = overGroup (lightHue Red)
   , lightOn, lightOff
   , lightBri, lightBri'
   , lightSat, lightSat'
   , lightHue, lightHue'
+  , lightEffect
+  , allOn, allOff
     -- * Colours
   , Colour(..)
   , colours
@@ -48,59 +62,48 @@ colours :: M.Map Colour Word16
 colours = M.fromList $ zip [Red ..] [ 0, 12750, 25500, 46920, 56100 ]
 
 -- | Turn a light on.
-lightOn :: ERL r => Int -> Eff r ()
-lightOn = overLight f
-  where f l@Light { _on = Left False } = l { _on = Right True }
-        f l = l
+lightOn :: Light -> Light
+lightOn l@Light { _on = Left False } = l { _on = Right True }
+lightOn l = l
 
 -- | Turn a light off.
-lightOff :: ERL r => Int -> Eff r ()
-lightOff = overLight f
-  where f l@Light { _on = Left True } = l { _on = Right False }
-        f l = l
+lightOff :: Light -> Light
+lightOff l@Light { _on = Left True } = l { _on = Right False }
+lightOff l = l
 
 -- | Set the brightness, as a percent of its maximum (254).
 -- Pass the `Float` in as a value between 0 and 1.
-lightBri :: ERL r => Float -> Int -> Eff r ()
-lightBri p = overLight (& bri .~ round (254 * p))
+lightBri :: Float -> Light -> Light
+lightBri p l = l & bri .~ round (254 * p)
 
 -- | Set the brightness, as a percent of its current value.
 -- Pass the `Float` in as a value between 0 and 1.
-lightBri' :: ERL r => Float -> Int -> Eff r ()
-lightBri' p = overLight (& bri %~ (\n -> round $ fromIntegral n * p))
+lightBri' :: Float -> Light -> Light
+lightBri' p l = l & bri %~ (\n -> round $ fromIntegral n * p)
 
 -- | Set a light's `Colour`.
-lightHue :: ERL r => Colour -> Int -> Eff r ()
+lightHue :: Colour -> Light -> Light
 lightHue = lightHue' . fromJust . flip M.lookup colours
 
 -- | Set a light's hue value.
-lightHue' :: ERL r => Word16 -> Int -> Eff r ()
-lightHue' h = overLight (& hue .~ h)
+lightHue' :: Word16 -> Light -> Light
+lightHue' h l = l & hue .~ h
 
 -- | Set the saturation, as a percent of its maximum (254).
-lightSat :: ERL r => Float -> Int -> Eff r ()
-lightSat p = overLight (& sat .~ round (254 * p))
+lightSat :: Float -> Light -> Light
+lightSat p l = l & sat .~ round (254 * p)
 
 -- | Set the saturation, as a percent of its current value.
-lightSat' :: ERL r => Float -> Int -> Eff r ()
-lightSat' p = overLight (& sat %~ (\n -> round $ fromIntegral n * p))
+lightSat' :: Float -> Light -> Light
+lightSat' p l = l & sat %~ (\n -> round $ fromIntegral n * p)
 
-lightEffect :: ERL r => LightEffect -> Int -> Eff r ()
-lightEffect e = overLight (& effect .~ e)
-
-groups :: ERL r => Eff r [Group]
-groups = undefined
+lightEffect :: LightEffect -> Light -> Light
+lightEffect e l = l & effect .~ e
 
 -- | Turn all the lights on.
 allOn :: ERL r => Eff r ()
-allOn = lights >>= mapM_ lightOn . M.keys
+allOn = lights >>= mapM_ (overLight lightOn) . M.keys
 
 -- | Turn all the lights off.
 allOff :: ERL r => Eff r ()
-allOff = lights >>= mapM_ lightOff . M.keys
-
-groupOn :: ERL r => Group -> Eff r ()
-groupOn = undefined
-
-groupOff :: ERL r => Group -> Eff r ()
-groupOff = undefined
+allOff = lights >>= mapM_ (overLight lightOff) . M.keys
