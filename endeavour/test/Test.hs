@@ -66,11 +66,9 @@ outputT e = runT e . emit $ CBOutput 100 3000
 
 briT :: Env -> Assertion
 briT e = runT e $ do
-  lightOn 2
-  lightBri 0.5 2
-  lightBri 1 2
-  mapM_ (flip lightHue 2) [Red ..]
-  lightOff 2
+  overLight (lightBri 0.5 . lightOn) 2
+  mapM_ (\c -> overLight (lightHue c) 2) [Red ..]
+  overLight lightOff 2
 
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f

@@ -27,7 +27,7 @@ module Endeavour.Knowledge.Hue
     -- to a single `Light` is also easy:
     --
     -- > dimBlue :: ERL r => Int -> Eff r ()
-    -- > dimBlue = overLight (lightHue Blue . lightBri 10)
+    -- > dimBlue = overLight (lightHue Blue . lightBri 0.1)
     --
     -- To run transformations across light `Group`s, use `overGroup`:
     --
@@ -38,6 +38,7 @@ module Endeavour.Knowledge.Hue
   , lightSat, lightSat'
   , lightHue, lightHue'
   , lightEffect
+  , overLight
   , allOn, allOff
     -- * Colours
   , Colour(..)
