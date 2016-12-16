@@ -10,8 +10,11 @@
 
 module Endeavour.Knowledge.Hue
   ( -- * Lights
+    -- ** Types
     Light(..)
   , LightEffect(..)
+  , Group(..)
+  , ID(..)
     -- ** Light Status
   , light, lights
   , group, groups
@@ -19,26 +22,26 @@ module Endeavour.Knowledge.Hue
     -- | The core transformations that affect `Light`s are all pure. To "run"
     -- a transformation, use the `overLight` function:
     --
-    -- > turnItOn :: ERL r => Int -> Eff r ()
+    -- > turnItOn :: ERL r => ID -> Eff r ()
     -- > turnItOn = overLight lightOn
     --
     -- This will apply the change across the network to the `Light` whose
-    -- id you pass in as the `Int`. Efficiently applying multiple transformations
+    -- id you pass in as the `ID`. Efficiently applying multiple transformations
     -- to a single `Light` is also easy:
     --
-    -- > dimBlue :: ERL r => Int -> Eff r ()
+    -- > dimBlue :: ERL r => ID -> Eff r ()
     -- > dimBlue = overLight (lightHue Blue . lightBri 0.1)
     --
     -- To run transformations across light `Group`s, use `overGroup`:
     --
-    -- > makeGroupRed :: ERL r => Int -> Eff r ()
+    -- > makeGroupRed :: ERL r => ID -> Eff r ()
     -- > makeGroupRed = overGroup (lightHue Red)
+  , overLight, overGroup
   , lightOn, lightOff
   , lightBri, lightBri'
   , lightSat, lightSat'
   , lightHue, lightHue'
   , lightEffect
-  , overLight
   , allOn, allOff
     -- * Colours
   , Colour(..)

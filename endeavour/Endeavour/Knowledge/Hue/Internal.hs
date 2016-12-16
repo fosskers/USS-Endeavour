@@ -18,6 +18,7 @@ module Endeavour.Knowledge.Hue.Internal
     Light(..)
   , LightEffect(..)
   , Group(..)
+  , ID(..)
     -- * Functions
   , light, lights, overLight
   , group, groups, overGroup
@@ -41,6 +42,12 @@ import Servant.API
 import Servant.Client
 
 ---
+
+-- | A typesafe Integer id for a Phillips Hue lights and light groups.
+newtype ID = ID { _id :: Word8 } deriving (Eq, Ord, Show)
+
+instance FromJSON ID where
+  parseJSON (String n) = pure . ID . read $ unpack n
 
 -- | Special effects that a light can perform.
 data LightEffect = NoEffect | ColourLoop | Flash deriving (Eq, Show)
@@ -79,22 +86,19 @@ instance ToJSON Light where
           o' _ = []
 
 data Group = Group { _gname  :: Text
-                   , _glights :: [Int]
+                   , _glights :: [ID]
                    , _gaction :: Light } deriving (Eq, Show)
 makeLenses ''Group
 
 instance FromJSON Group where
-  parseJSON (Object v) = Group       <$>
-    v .: "name"                      <*>
-    ((map read) <$> (v .: "lights")) <*>
-    v .: "action"
+  parseJSON (Object v) = Group <$> v .: "name" <*> v .: "lights" <*> v .: "action"
 
 type API =
   "api" :> Capture "uid" Text :> "lights" :> Get '[JSON] (Map Text Light)
-  :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Int :> Get '[JSON] Light
-  :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Int :> "state" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
+  :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Word8 :> Get '[JSON] Light
+  :<|> "api" :> Capture "uid" Text :> "lights" :> Capture "lid" Word8 :> "state" :> ReqBody '[JSON] Light :> Put '[JSON] NoContent
   :<|> "api" :> Capture "uid" Text :> "groups" :> Get '[JSON] (Map Text Group)
-  :<|> "api" :> Capture "uid" Text :> "groups" :> Capture "gid" Int :> Get '[JSON] Group
+  :<|> "api" :> Capture "uid" Text :> "groups" :> Capture "gid" Word8 :> Get '[JSON] Group
 
 api :: Proxy API
 api = Proxy
@@ -114,27 +118,27 @@ toBridge c = do
   hi <- reader _hueIp
   transmit (bridgeUrl hi) $ c hu
 
--- | A `Light`, from its ID.
-light :: ERL r => Int -> Eff r Light
-light = toBridge . flip getLight
+-- | A `Light`, from its `ID`.
+light :: ERL r => ID -> Eff r Light
+light = toBridge . flip getLight . _id
 
 -- | All the lights in the network.
-lights :: ERL r => Eff r (Map Int Light)
-lights = mapKeys (read . unpack) <$> toBridge getLights
+lights :: ERL r => Eff r (Map ID Light)
+lights = mapKeys (ID . read . unpack) <$> toBridge getLights
 
 -- | A function over a light, across a network.
-overLight :: ERL r => (Light -> Light) -> Int -> Eff r ()
-overLight f lid = light lid >>= void . toBridge . (\l t -> setLight t lid l) . f
+overLight :: ERL r => (Light -> Light) -> ID -> Eff r ()
+overLight f lid = light lid >>= void . toBridge . (\l t -> setLight t (_id lid) l) . f
 
--- | A `Group`, from its ID.
-group :: ERL r => Int -> Eff r Group
-group = toBridge . flip getGroup
+-- | A `Group`, from its `ID`.
+group :: ERL r => ID -> Eff r Group
+group = toBridge . flip getGroup . _id
 
 -- | All the groups in the network.
-groups :: ERL r => Eff r (Map Int Group)
-groups = mapKeys (read . unpack) <$> toBridge getGroups
+groups :: ERL r => Eff r (Map ID Group)
+groups = mapKeys (ID . read . unpack) <$> toBridge getGroups
 
 -- | Given a function which transforms a `Light`, perform
 -- that action on all lights in a `Group`.
-overGroup :: ERL r => (Light -> Light) -> Int -> Eff r ()
+overGroup :: ERL r => (Light -> Light) -> ID -> Eff r ()
 overGroup f g = group g >>= mapM_ (overLight f) . _glights

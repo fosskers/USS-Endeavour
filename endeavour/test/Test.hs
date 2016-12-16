@@ -66,9 +66,10 @@ outputT e = runT e . emit $ CBOutput 100 3000
 
 briT :: Env -> Assertion
 briT e = runT e $ do
-  overLight (lightBri 0.5 . lightOn) 2
-  mapM_ (\c -> overLight (lightHue c) 2) [Red ..]
-  overLight lightOff 2
+  let i = ID 2
+  overLight (lightBri 0.5 . lightOn) i
+  mapM_ (\c -> overLight (lightHue c) i) [Red ..]
+  overLight lightOff i
 
 ioIso :: Env -> Assertion
 ioIso = runLift . runReader f
@@ -82,5 +83,5 @@ lightsT :: Env -> Assertion
 lightsT e = do
   r <- fmap (\m -> M.size <$> m) f
   r @?= Right 3
-  where f :: IO (Either Text (M.Map Int Light))
+  where f :: IO (Either Text (M.Map ID Light))
         f = runLift . runExc $ runReader lights e
