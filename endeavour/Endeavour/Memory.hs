@@ -25,6 +25,7 @@ import           Control.Eff.Reader.Lazy
 import           Data.Aeson
 import qualified Data.Text as T
 import           Data.Time.Clock
+import           Data.Word
 import           Database.SQLite.Simple
 import           Endeavour.Genetics
 
@@ -74,7 +75,7 @@ chronicle' conn cat t = do
 
 -- | Probe the Ship's memory for event logs. An optional limit factor can be
 -- supplied.
-recall :: RL r => Maybe Int -> Eff r [Log]
+recall :: RL r => Maybe Word16 -> Eff r [Log]
 recall m = reader _conn >>= lift . f m
   where f Nothing  c = query_ c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC;"
         f (Just n) c = query c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC LIMIT ?;" $ Only n

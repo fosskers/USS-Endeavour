@@ -13,6 +13,7 @@ import qualified Control.Exception as E
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
 import           Data.Proxy
+import           Data.Word
 import           Endeavour.Genetics
 import           Endeavour.Knowledge.ChromeCast
 import           Endeavour.Knowledge.LittleBits
@@ -33,7 +34,7 @@ instance ParseRecord Args
 
 type API = "lb" :> "lamp" :> Get '[JSON] ()
   :<|> "lb" :> "status" :> Get '[JSON] CBStatus
-  :<|> "log" :> QueryParam "limit" Int :> Get '[JSON] [Log]
+  :<|> "log" :> QueryParam "limit" Word16 :> Get '[JSON] [Log]
   :<|> "cast" :> Capture "file" Text :> Get '[JSON] ()
 
 api :: Proxy API
