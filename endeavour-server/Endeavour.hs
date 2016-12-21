@@ -16,6 +16,7 @@ import           Data.Proxy
 import           Data.Word
 import           Endeavour.Genetics
 import           Endeavour.Knowledge.ChromeCast
+import           Endeavour.Knowledge.Hue
 import           Endeavour.Knowledge.LittleBits
 import           Endeavour.Memory
 import qualified Network.Wai.Handler.Warp as W
@@ -36,13 +37,18 @@ type API = "lb" :> "lamp" :> Get '[JSON] ()
   :<|> "lb" :> "status" :> Get '[JSON] CBStatus
   :<|> "log" :> QueryParam "limit" Word16 :> Get '[JSON] [Log]
   :<|> "cast" :> Capture "file" Text :> Get '[JSON] ()
+  :<|> "ph" :> "light" :> Capture "lid" Word8 :> ReqBody '[JSON] Light :> Get '[JSON] ()
+  :<|> "ph" :> "group" :> Capture "gid" Word8 :> ReqBody '[JSON] Light :> Get '[JSON] ()
 
 api :: Proxy API
 api = Proxy
 
 -- | The request handler functions, all of which operate in the `Effect` Monad.
 serverT :: ServerT API Effect
-serverT = lamp :<|> status :<|> recall :<|> cast
+serverT = lamp :<|> status
+  :<|> recall
+  :<|> cast
+  :<|> (\lid l -> overLight (const l) $ ID lid) :<|> (\gid l -> overGroup (const l) $ ID gid)
 
 -- | Conversion logic between our effect stack and the `Handler` Monad.
 -- Catches any errors thrown within the effect stack, writes them to the

@@ -59,12 +59,12 @@ data Env = Env { _conn     :: Connection
 awaken :: FilePath -> IO (Maybe Env)
 awaken conf = do
   raw <- decodeFile @Value conf
-  let db   = raw ^? _Just . key "db_path" . _String
-      iden = raw ^? _Just . key "cloud_bit" . key "device_id" . _String
-      auth = raw ^? _Just . key "cloud_bit" . key "auth_token" . _String
+  let db   = raw ^? _Just . key "db_path"    . _String
+      iden = raw ^? _Just . key "cloud_bit"  . key "device_id"  . _String
+      auth = raw ^? _Just . key "cloud_bit"  . key "auth_token" . _String
       meda = raw ^? _Just . key "media_path" . _String
-      husr = raw ^? _Just . key "hue" . key "user" . _String
-      huip = raw ^? _Just . key "hue" . key "ip" . _String
+      husr = raw ^? _Just . key "hue"        . key "user"       . _String
+      huip = raw ^? _Just . key "hue"        . key "ip"         . _String
   sequence $ f <$> db <*> iden <*> auth <*> meda <*> husr <*> huip -- clever
   where f d i a m hu hi = do
           conn <- open $ T.unpack d
