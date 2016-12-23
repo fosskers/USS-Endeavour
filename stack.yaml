@@ -1,10 +1,12 @@
-resolver: nightly-2016-12-01
+resolver: nightly-2016-12-15
 
 packages:
   - './endeavour'
   - './endeavour-server'
+  - './endeavour-cli'
 
 extra-deps:
+  - 'dhall-1.0.1'
   - 'fuzzy-0.1.0.0'
 
 # Override default flag values for local packages and extra-deps

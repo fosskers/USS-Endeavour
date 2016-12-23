@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- |
 -- Module    : Endeavour.Knowledge.ChromeCast
@@ -19,7 +20,7 @@ import           Control.Eff.Lift
 import           Control.Eff.Reader.Lazy
 import           Control.Monad (void)
 import           Data.Monoid
-import           Data.Text (Text)
+import           Data.Text (Text, breakOnEnd)
 import           Endeavour.Genetics
 import           Endeavour.Memory
 import           Lens.Micro
@@ -29,7 +30,7 @@ import qualified Text.Fuzzy as F
 ---
 
 -- | ChromeCast can handle MP4, MKV, and normal audio formats (including FLAC)
--- natively. AVIs will be converted on-the-fly via the @--tomp4@ flag.
+-- natively. AVIs will be converted on-the-fly via the @-transcode@ flag.
 --
 -- @castnow@ will exit successfully when the file is done playing,
 -- or when another "sender app" takes over the ChromeCast.
@@ -38,7 +39,13 @@ cast f = do
   toCast <- fileToCast f
   chronicle Info $ "Casting " <> toCast
   void . effShelly "Failed to stream to ChromeCast." . asyncSh $
-    run_ "stream2chromecast" [toCast]
+    run_ "stream2chromecast" (castArgs toCast)
+
+-- | If the media file is an AVI, we need to transcode it.
+castArgs :: Text -> [Text]
+castArgs f = case breakOnEnd "." f of
+  (_, "avi") -> ["-transcode", f]
+  _ -> [f]
 
 -- | Execute a Shelly command, smothering any thrown exceptions in `Maybe`.
 maybeSh :: Sh a -> IO (Maybe a)
