@@ -6,6 +6,7 @@ packages:
   - './endeavour-cli'
 
 extra-deps:
+  - 'deque-0.2'
   - 'dhall-1.0.1'
   - 'fuzzy-0.1.0.0'
 

@@ -20,6 +20,7 @@ executable endeavour-cli
 
   build-depends:       base >=4.9 && <4.10
                      , brick >= 0.15 && < 0.16
+                     , deque >= 0.2 && < 0.3
                      , endeavour >= 1.0 && < 1.1
                      , microlens >= 0.4 && < 0.5
                      , microlens-th >= 0.4 && < 0.5
