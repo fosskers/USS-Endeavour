@@ -10,8 +10,8 @@ import           Brick.Widgets.Border.Style
 import           Brick.Widgets.Center
 import           Brick.Widgets.ProgressBar
 import           Control.Monad (void)
-import           Data.Foldable (toList)
 import           Data.List (intersperse)
+import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Deque as D
 import qualified Graphics.Vty as V
@@ -23,7 +23,7 @@ import           Text.Printf.TH
 ---
 
 -- | Possible application pages.
-data Page = Lights | Media deriving (Eq, Enum, Show)
+data Page = Lights | Media | Logs deriving (Eq, Enum, Show)
 
 -- | The application state.
 data System = System { _msg :: T.Text, _pages :: D.Deque Page } deriving (Eq, Show)
@@ -31,6 +31,9 @@ makeLenses ''System
 
 -- | All resource names.
 data Name = Jack deriving (Eq, Show, Ord)
+
+selected :: AttrName
+selected = attrName "selected"
 
 boxy :: Widget n
 boxy = withBorderStyle unicodeRounded . border . padAll 5 $ txt "Welcome, Officer."
@@ -41,8 +44,11 @@ widgets s = centerWith (Just '.') boxy <=> footer s
 footer :: System -> Widget n
 footer s = hBox
   [ padRight Max . padLeft (Pad 1) . txt $ _msg s --progressBar (Just "Progress") 0.4
-  , padLeft Max . padRight (Pad 1) . txt . mconcat . intersperse " | " . map (T.pack . show) . toList $ _pages s
-  ]
+  , padLeft Max . padRight (Pad 1) $ rights ]
+  where curr = fromJust . D.head $ _pages s
+        rights = foldl1 (<+>) . intersperse (txt " | ") $ map f [Lights ..]
+        f p | p == curr = withAttr selected . txt . T.pack $ show p
+            | otherwise = txt . T.pack $ show p
 
 -- | The final conglomeration of `Widget`s.
 ui :: System -> Widget n
@@ -67,7 +73,9 @@ app = App { appDraw = \s -> [ui s]
           , appChooseCursor = neverShowCursor
           , appHandleEvent = handle
           , appStartEvent = pure
-          , appAttrMap = const $ attrMap V.defAttr [ (progressCompleteAttr, bg V.blue) ]
+          , appAttrMap = const $ attrMap V.defAttr [ (progressCompleteAttr, bg V.blue)
+                                                   , (selected, bg V.blue)
+                                                   ]
           }
 
 main :: IO ()

@@ -34,7 +34,7 @@ library
                      , http-client-tls >= 0.3 && < 0.4
                      , microlens >= 0.4 && < 0.5
                      , microlens-th >= 0.4 && < 0.5
-                     , microlens-aeson >= 2.1 && < 2.2
+                     , microlens-aeson >= 2.1 && < 2.3
                      , servant >= 0.9 && < 0.10
                      , servant-client >= 0.9 && < 0.10
                      , shelly >= 1.6 && < 1.7
