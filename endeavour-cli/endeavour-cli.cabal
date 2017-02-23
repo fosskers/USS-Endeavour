@@ -27,6 +27,7 @@ executable endeavour-cli
                      , text
                      , th-printf >= 0.3 && < 0.4
                      , unix
+                     , vector >= 0.11 && < 0.13
                      , vty >= 5.14 && < 5.15
 
   -- hs-source-dirs:
