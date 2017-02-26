@@ -11,12 +11,11 @@ import           Brick.Widgets.Border.Style
 import           Brick.Widgets.Center
 import           Brick.Widgets.List
 import           Brick.Widgets.ProgressBar
-import           Control.Eff.Exception
 import           Control.Eff.Lift
 import           Control.Eff.Reader.Lazy
 import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.List (intersperse)
+import           Data.List (intersperse, sort)
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Data.Time.Clock (UTCTime)
@@ -36,7 +35,7 @@ import           Text.Printf.TH
 ---
 
 -- | Command-line arguments.
-data Args = Args { config :: FilePath } deriving (Generic, ParseRecord)
+newtype Args = Args { config :: FilePath } deriving (Generic, ParseRecord)
 
 -- | All resource names.
 data RName = MediaList | LogList deriving (Eq, Show, Ord)
@@ -79,8 +78,9 @@ media = renderList f False --vLimit 30 . hLimit 80 . renderList f False
 
 logs :: List RName Log -> Widget RName
 logs = renderList f False --txt "Log Display"
-  where f False (Log t c e) = hBox $ map (padRight $ Pad 1) [bracket (logCat c), time t, txt "==>", txt e]
-        f True (Log t c e) = hBox $ map (padRight $ Pad 1) [bracket (logCat c), time t, txt "==>", withAttr selected (txt e)]
+  where f b (Log t c e) = hBox $ map (padRight $ Pad 1) [bracket (logCat c), time t, txt "==>", g b e]
+        g True w = withAttr selected (txt w)
+        g False w = txt w
 
 time :: UTCTime -> Widget n
 time = str . formatTime defaultTimeLocale "%Y-%m-%d (%a) %H:%M:%S"
@@ -127,17 +127,13 @@ handle s e = case fromJust . D.head $ _pages s of
 lightHandle :: s -> t -> EventM n (Next s)
 lightHandle s e = continue s
 
--- TODO Put this in Endeavour backend.
-doIt :: Env -> Effect a -> IO (Either Text a)
-doIt env eff = runLift . runExc $ runReader eff env
-
 -- | Handle events unique to the Media page.
 mediaHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
 mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _mediaFiles s of
   Nothing -> continue s
-  Just (_, f) -> do
-    liftIO $ doIt (_env s) (cast f)  -- TODO Pattern match on `Either` for errors
-    continue (s & msg .~ f)
+  Just (_, file) -> do
+    res <- liftIO . runEffect (_env s) $ cast file
+    either (\e -> continue (s & msg .~ e)) (\_ -> continue (s & msg .~ file)) res
 mediaHandle s (VtyEvent e) = handleEventLensed s mediaFiles handleListEvent e >>= continue
 
 logHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
@@ -156,7 +152,6 @@ app = App { appDraw = \s -> [ui s]
                                                    ]
           }
 
--- TODO Get media list here via Shelly. Media dir should be in Endeavour `Env`.
 main :: IO ()
 main = do
   Args c <- getRecord "U.S.S. Endeavour - Operation Terminal"
@@ -164,12 +159,13 @@ main = do
   case env of
     Nothing -> putStrLn "Failed to parse config file."
     Just e  -> do
+      chronicle' (_conn e) Info "Starting CLI client."
       vids <- runLift $ runReader video e
       logs <- runLift $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       let m = [st|Hello, %s.|] (T.toTitle user)
           p = D.fromList [Lights ..]
-          v = list MediaList (V.fromList vids) 1 -- $ T.words "This is a sample list") 5
+          v = list MediaList (V.fromList $ sort vids) 1
           l = list LogList (V.fromList logs) 1
       void . defaultMain app $ System e m p v l
       slumber e
