@@ -12,6 +12,8 @@
 
 module Endeavour.Knowledge.ChromeCast
   ( cast
+  , audio
+  , video
   ) where
 
 import           Control.Eff
