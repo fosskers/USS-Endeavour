@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell, QuasiQuotes #-}
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
 
 module Main where
 
@@ -16,13 +16,18 @@ import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Deque as D
+import           Endeavour.Genetics
 import qualified Graphics.Vty as G
 import           Lens.Micro
 import           Lens.Micro.TH
+import           Options.Generic
 import           System.Posix.User (getEffectiveUserName)
 import           Text.Printf.TH
 
 ---
+
+-- | Command-line arguments.
+data Args = Args { config :: FilePath } deriving (Generic, ParseRecord)
 
 -- | All resource names.
 data RName = MediaList deriving (Eq, Show, Ord)
@@ -117,9 +122,15 @@ app = App { appDraw = \s -> [ui s]
 -- TODO Get media list here via Shelly. Media dir should be in Endeavour `Env`.
 main :: IO ()
 main = do
-  user <- T.pack <$> getEffectiveUserName
-  let m = [st|Hello, %s.|] (T.toTitle user)
-      p = D.fromList [Lights ..]
-      l = list MediaList (V.fromList $ T.words "This is a sample list") 5
-  void . defaultMain app $ System m p l
-  putStrLn "Shutdown complete."
+  Args c <- getRecord "U.S.S. Endeavour - Operation Terminal"
+  env <- awaken c
+  case env of
+    Nothing -> putStrLn "Failed to parse config file."
+    Just e  -> do
+      user <- T.pack <$> getEffectiveUserName
+      let m = [st|Hello, %s.|] (T.toTitle user)
+          p = D.fromList [Lights ..]
+          l = list MediaList (V.fromList $ T.words "This is a sample list") 5
+      void . defaultMain app $ System m p l
+      slumber e
+      putStrLn "Shutdown complete."
