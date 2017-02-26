@@ -54,6 +54,11 @@ data Env = Env { _conn     :: Connection
                , _hueUser  :: T.Text
                , _hueIp    :: T.Text }
 
+-- | Run the full `Effect` stack. Useful for bringing backend actions
+-- into the `IO` monad, for further lifting via `liftIO`.
+runEffect :: Env -> Effect a -> IO (Either T.Text a)
+runEffect env eff = runLift . runExc $ runReader eff env
+
 -- | Given a `FilePath` to a config file, read it and parse out the runtime
 -- environment.
 awaken :: FilePath -> IO (Maybe Env)
