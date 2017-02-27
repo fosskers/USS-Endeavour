@@ -15,6 +15,7 @@ executable endeavour-cli
 
   build-depends:       base >=4.9 && <4.10
                      , brick >= 0.15 && < 0.16
+                     , containers
                      , deque >= 0.2 && < 0.3
                      , endeavour >= 1.0 && < 1.1
                      , extensible-effects >= 1.11 && < 1.12

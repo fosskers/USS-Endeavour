@@ -16,6 +16,7 @@ import           Control.Eff.Reader.Lazy
 import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.List (intersperse, sort)
+import qualified Data.Map.Strict as M
 import           Data.Maybe (fromJust)
 import qualified Data.Text as T
 import           Data.Time.Clock (UTCTime)
@@ -24,6 +25,7 @@ import qualified Data.Vector as V
 import qualified Deque as D
 import           Endeavour.Genetics
 import           Endeavour.Knowledge.ChromeCast
+import           Endeavour.Knowledge.Hue hiding (lights)
 import           Endeavour.Memory
 import qualified Graphics.Vty as G
 import           Lens.Micro
@@ -38,7 +40,7 @@ import           Text.Printf.TH
 newtype Args = Args { config :: FilePath } deriving (Generic, ParseRecord)
 
 -- | All resource names.
-data RName = MediaList | LogList deriving (Eq, Show, Ord)
+data RName = LGroupList | MediaList | LogList deriving (Eq, Show, Ord)
 
 -- | Possible application pages.
 data Page = Lights | Media | Logs deriving (Eq, Enum, Show)
@@ -47,6 +49,7 @@ data Page = Lights | Media | Logs deriving (Eq, Enum, Show)
 data System = System { _env         :: Env
                      , _msg         :: T.Text
                      , _pages       :: D.Deque Page
+                     , _lightGroups :: List RName (ID, Group)
                      , _mediaFiles  :: List RName T.Text
                      , _logEntries  :: List RName Log }
 makeLenses ''System
@@ -60,24 +63,33 @@ logWarn = attrName "warn"
 logFail :: AttrName
 logFail = attrName "fail"
 
+onAttr :: AttrName
+onAttr = attrName "lightOn"
+
+offAttr :: AttrName
+offAttr = attrName "lightOff"
+
 boxy :: Widget n -> Widget n
 boxy = padAll 5
---withBorderStyle unicodeRounded . border . padAll 5
 
 widgets :: System -> Widget RName
 widgets s = center (boxy . page s . fromJust . D.head $ _pages s) <=> footer s
- --centerWith (Just '.') boxy <=> footer s
 
-lights :: Widget n
-lights = txt "Light Controls"
+lights :: List RName (t, Group) -> Widget RName
+lights = renderList f False
+  where f b (_,g) = bracket (o g) <+> txt " " <+> h b g
+        h False g = txt $ _gname g
+        h True g = withAttr selected . txt $ _gname g
+        o g | isOn $ _gaction g = withAttr onAttr $ txt "ON "
+            | otherwise = withAttr offAttr $ txt "OFF"
 
 media :: List RName T.Text -> Widget RName
-media = renderList f False --vLimit 30 . hLimit 80 . renderList f False
+media = renderList f False
   where f False e = txt e
         f True e = withAttr selected $ txt e
 
 logs :: List RName Log -> Widget RName
-logs = renderList f False --txt "Log Display"
+logs = renderList f False
   where f b (Log t c e) = hBox $ map (padRight $ Pad 1) [bracket (logCat c), time t, txt "==>", g b e]
         g True w = withAttr selected (txt w)
         g False w = txt w
@@ -97,7 +109,7 @@ bracket w = txt "[" <+> w <+> txt "]"
 -- | Dispatch a `Widget` based on the selected `Page`.
 -- This is to turn pages/tabs in the app.
 page :: System -> Page -> Widget RName
-page _ Lights = lights
+page s Lights = lights $ _lightGroups s
 page s Media = media $ _mediaFiles s
 page s Logs = logs $ _logEntries s
 
@@ -124,8 +136,26 @@ handle s e = case fromJust . D.head $ _pages s of
   Media  -> mediaHandle s e
   Logs   -> logHandle s e
 
-lightHandle :: s -> t -> EventM n (Next s)
-lightHandle s e = continue s
+-- | Handle events unique to the Lights page.
+lightHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
+lightHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _lightGroups s of
+  Nothing -> continue s
+  Just (_, (i, g)) -> do
+    liftIO . runEffect (_env s) $ overGroup lightOn i
+    continue (s & msg .~ [st|ON: %s|] (_gname g))
+lightHandle s (VtyEvent (G.EvKey G.KBS _)) = case listSelectedElement $ _lightGroups s of
+  Nothing -> continue s
+  Just (_, (i, g)) -> do
+    liftIO . runEffect (_env s) $ overGroup lightOff i
+    continue (s & msg .~ [st|OFF: %s|] (_gname g))
+lightHandle s (VtyEvent (G.EvKey (G.KChar 'r') _)) = lightRefresh s
+lightHandle s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= continue
+
+lightRefresh :: System -> EventM n (Next System)
+lightRefresh s = do
+  grps <- liftIO (either (const []) M.toList <$> runEffect (_env s) groups)
+  continue (s & lightGroups .~ list LGroupList (V.fromList grps) 1
+              & msg .~ "Refresh Light-group Status")
 
 -- | Handle events unique to the Media page.
 mediaHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
@@ -136,6 +166,7 @@ mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _medi
     either (\e -> continue (s & msg .~ e)) (\_ -> continue (s & msg .~ file)) res
 mediaHandle s (VtyEvent e) = handleEventLensed s mediaFiles handleListEvent e >>= continue
 
+-- | Handle events unique to the Log page.
 logHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
 logHandle s (VtyEvent e) = handleEventLensed s logEntries handleListEvent e >>= continue
 
@@ -149,6 +180,8 @@ app = App { appDraw = \s -> [ui s]
                                                    , (selected, bg G.blue)
                                                    , (logWarn, bg G.yellow)
                                                    , (logFail, bg G.red)
+                                                   , (onAttr, bg G.yellow)
+                                                   , (offAttr, bg G.red)
                                                    ]
           }
 
@@ -160,13 +193,15 @@ main = do
     Nothing -> putStrLn "Failed to parse config file."
     Just e  -> do
       chronicle' (_conn e) Info "Starting CLI client."
+      grps <- either (const []) M.toList <$> runEffect e groups
       vids <- runLift $ runReader video e
       logs <- runLift $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       let m = [st|Hello, %s.|] (T.toTitle user)
           p = D.fromList [Lights ..]
+          h = list LGroupList (V.fromList grps) 1
           v = list MediaList (V.fromList $ sort vids) 1
           l = list LogList (V.fromList logs) 1
-      void . defaultMain app $ System e m p v l
+      void . defaultMain app $ System e m p h v l
       slumber e
       putStrLn "Shutdown complete."
