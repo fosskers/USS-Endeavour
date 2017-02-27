@@ -38,6 +38,7 @@ suite env = testGroup "Endeavour System Logic Diagnostic"
   , testGroup "Phillips Hue Lights"
     [ testCase "Light count" $ lightsT env
     , testCase "L2 Brightness" $ briT env
+    , testCase "Group count" $ groupsT env
     ]
   ]
 
@@ -81,7 +82,10 @@ ioIso = runLift . runReader f
 
 lightsT :: Env -> Assertion
 lightsT e = do
-  r <- fmap (\m -> M.size <$> m) f
+  r <- fmap (\m -> M.size <$> m) $ runEffect e lights
   r @?= Right 3
-  where f :: IO (Either Text (M.Map ID Light))
-        f = runLift . runExc $ runReader lights e
+
+groupsT :: Env -> Assertion
+groupsT e = do
+  r <- fmap (\m -> M.size <$> m) $ runEffect e groups
+  r @?= Right 2

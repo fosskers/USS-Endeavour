@@ -16,6 +16,7 @@ module Endeavour.Knowledge.Hue
   , Group(..)
   , ID(..)
     -- ** Light Status
+  , isOn
   , light, lights
   , group, groups
     -- ** Light Controls
@@ -64,6 +65,17 @@ data Colour = Red | Yellow | Green | Blue | Magenta deriving (Eq, Show, Ord, Enu
 -- hue value that the bulbs use.
 colours :: M.Map Colour Word16
 colours = M.fromList $ zip [Red ..] [ 0, 12750, 25500, 46920, 56100 ]
+
+-- | Is a given `Light` on?
+--
+-- @
+-- -- Is a Group on?
+-- isOn $ _gaction g
+-- @
+isOn :: Light -> Bool
+isOn Light { _on = Left True } = True
+isOn Light { _on = Right True } = True
+isOn _ = False
 
 -- | Turn a light on.
 lightOn :: Light -> Light

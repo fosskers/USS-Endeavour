@@ -31,6 +31,7 @@ import Control.Eff hiding ((:>))
 import Control.Eff.Reader.Lazy
 import Control.Monad (void)
 import Data.Aeson
+import Data.Aeson.Types (Parser)
 import Data.Map.Lazy (Map, mapKeys)
 import Data.Proxy
 import Data.Text (Text, unpack)
@@ -69,13 +70,16 @@ data Light = Light { _on     :: Either Bool Bool
 makeLenses ''Light
 
 instance FromJSON Light where
-  parseJSON (Object v) = (v .: "state") >>= \s ->
-    Light                      <$>
-    fmap Left (s .: "on")      <*>
-    s .: "bri"                 <*>
-    s .: "hue"                 <*>
-    s .: "sat"                 <*>
-    s .: "effect"
+  parseJSON (Object v) = (v .: "state") >>= lightP
+
+-- | A field parser common to `Light` and `Group`.
+lightP :: Object -> Parser Light
+lightP s = Light
+  <$> fmap Left (s .: "on")
+  <*> s .: "bri"
+  <*> s .: "hue"
+  <*> s .: "sat"
+  <*> s .: "effect"
 
 -- | Only encode the @"on"@ field if there was a change. This change is
 -- reflected in the transformation from `Left` to `Right`. Not passing @"on"@
@@ -91,7 +95,7 @@ data Group = Group { _gname  :: Text
 makeLenses ''Group
 
 instance FromJSON Group where
-  parseJSON (Object v) = Group <$> v .: "name" <*> v .: "lights" <*> v .: "action"
+  parseJSON (Object v) = Group <$> v .: "name" <*> v .: "lights" <*> (v .: "action" >>= lightP)
 
 type API =
   "api" :> Capture "uid" Text :> "lights" :> Get '[JSON] (Map Text Light)
