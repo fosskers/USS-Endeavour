@@ -29,7 +29,7 @@ import           System.Posix.Signals hiding (Handler)
 ---
 
 -- | Command-line arguments.
-data Args = Args { config :: FilePath } deriving (Generic)
+newtype Args = Args { config :: FilePath } deriving (Generic)
 
 instance ParseRecord Args
 

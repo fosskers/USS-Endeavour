@@ -82,10 +82,10 @@ ioIso = runLift . runReader f
 
 lightsT :: Env -> Assertion
 lightsT e = do
-  r <- fmap (\m -> M.size <$> m) $ runEffect e lights
+  r <- (\m -> M.size <$> m) <$> runEffect e lights
   r @?= Right 3
 
 groupsT :: Env -> Assertion
 groupsT e = do
-  r <- fmap (\m -> M.size <$> m) $ runEffect e groups
+  r <- (\m -> M.size <$> m) <$> runEffect e groups
   r @?= Right 2
