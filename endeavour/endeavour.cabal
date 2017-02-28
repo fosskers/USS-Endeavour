@@ -20,6 +20,7 @@ library
                      , Endeavour.Knowledge.Hue.Internal
                      , Endeavour.Knowledge.LittleBits
                      , Endeavour.Knowledge.LittleBits.Internal
+                     , Endeavour.Knowledge.Space
                      , Endeavour.Knowledge.Util
 
   -- other-extensions:

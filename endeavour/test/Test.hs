@@ -9,6 +9,7 @@ import           Database.SQLite.Simple
 import           Endeavour.Genetics
 import           Endeavour.Knowledge.Hue
 import           Endeavour.Knowledge.LittleBits.Internal
+import           Endeavour.Knowledge.Space
 import           Endeavour.Memory
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -40,6 +41,8 @@ suite env = testGroup "Endeavour System Logic Diagnostic"
     , testCase "L2 Brightness" $ briT env
     , testCase "Group count" $ groupsT env
     ]
+  , testGroup "Astronauts in Space"
+    [ testCase "API call" $ astroT env ]
   ]
 
 assertRight :: String -> Either a b -> Assertion
@@ -89,3 +92,8 @@ groupsT :: Env -> Assertion
 groupsT e = do
   r <- (\m -> M.size <$> m) <$> runEffect e groups
   r @?= Right 2
+
+astroT :: Env -> Assertion
+astroT e = do
+  r <- runEffect e astronauts
+  assertRight "No!" r
