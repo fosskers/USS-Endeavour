@@ -26,6 +26,7 @@ import qualified Deque as D
 import           Endeavour.Genetics
 import           Endeavour.Knowledge.ChromeCast
 import           Endeavour.Knowledge.Hue hiding (lights)
+import           Endeavour.Knowledge.Space
 import           Endeavour.Memory
 import qualified Graphics.Vty as G
 import           Lens.Micro
@@ -197,7 +198,8 @@ main = do
       vids <- runLift $ runReader video e
       logs <- runLift $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
-      let m = [st|Hello, %s.|] (T.toTitle user)
+      astr <- either (const 0) length <$> runEffect e astronauts
+      let m = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
           p = D.fromList [Lights ..]
           h = list LGroupList (V.fromList grps) 1
           v = list MediaList (V.fromList $ sort vids) 1
