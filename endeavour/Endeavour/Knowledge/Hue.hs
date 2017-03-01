@@ -44,6 +44,9 @@ module Endeavour.Knowledge.Hue
   , lightHue, lightHue'
   , lightEffect
   , allOn, allOff
+    -- * Lenses
+  , on, bri, hue, sat, effect
+  , gname, glights, gaction
     -- * Colours
   , Colour(..)
   , colours
@@ -80,11 +83,13 @@ isOn _ = False
 -- | Turn a light on.
 lightOn :: Light -> Light
 lightOn l@Light { _on = Left False } = l { _on = Right True }
+lightOn l@Light { _on = Right False } = l { _on = Left True }
 lightOn l = l
 
 -- | Turn a light off.
 lightOff :: Light -> Light
 lightOff l@Light { _on = Left True } = l { _on = Right False }
+lightOff l@Light { _on = Right True } = l { _on = Left False }
 lightOff l = l
 
 -- | Set the brightness, as a percent of its maximum (254).
