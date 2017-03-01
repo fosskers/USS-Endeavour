@@ -14,7 +14,7 @@ executable endeavour-cli
   -- other-extensions:
 
   build-depends:       base >=4.9 && <4.10
-                     , brick >= 0.15 && < 0.16
+                     , brick >= 0.15 && < 0.18
                      , containers
                      , deque >= 0.2 && < 0.3
                      , endeavour >= 1.0 && < 1.1
@@ -27,7 +27,7 @@ executable endeavour-cli
                      , time
                      , unix
                      , vector >= 0.11 && < 0.13
-                     , vty >= 5.14 && < 5.15
+                     , vty >= 5.15 && < 5.16
 
   -- hs-source-dirs:
   default-language:    Haskell2010

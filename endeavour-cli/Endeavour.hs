@@ -143,20 +143,15 @@ lightHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _ligh
   Nothing -> continue s
   Just (_, (i, g)) -> do
     liftIO . runEffect (_env s) $ overGroup lightOn i
-    continue (s & msg .~ [st|ON: %s|] (_gname g))
+    continue (s & msg .~ [st|ON: %s|] (_gname g)
+                & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOn))
 lightHandle s (VtyEvent (G.EvKey G.KBS _)) = case listSelectedElement $ _lightGroups s of
   Nothing -> continue s
   Just (_, (i, g)) -> do
     liftIO . runEffect (_env s) $ overGroup lightOff i
-    continue (s & msg .~ [st|OFF: %s|] (_gname g))
-lightHandle s (VtyEvent (G.EvKey (G.KChar 'r') _)) = lightRefresh s
+    continue (s & msg .~ [st|OFF: %s|] (_gname g)
+                & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOff))
 lightHandle s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= continue
-
-lightRefresh :: System -> EventM n (Next System)
-lightRefresh s = do
-  grps <- liftIO (either (const []) M.toList <$> runEffect (_env s) groups)
-  continue (s & lightGroups .~ list LGroupList (V.fromList grps) 1
-              & msg .~ "Refresh Light-group Status")
 
 -- | Handle events unique to the Media page.
 mediaHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
