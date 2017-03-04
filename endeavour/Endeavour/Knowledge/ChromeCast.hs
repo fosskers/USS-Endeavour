@@ -40,7 +40,7 @@ cast f = do
   toCast <- fileToCast f
   chronicle Info $ "Casting " <> toCast
   void . effShelly "Failed to stream to ChromeCast." . asyncSh $
-    run_ "stream2chromecast" (castArgs toCast)
+    print_stderr False $ print_stdout False $ run_ "stream2chromecast" (castArgs toCast)
 
 -- | If the media file is an AVI, we need to transcode it.
 castArgs :: Text -> [Text]
