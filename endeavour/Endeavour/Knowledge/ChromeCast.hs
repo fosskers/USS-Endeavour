@@ -10,9 +10,10 @@
 -- Functions for interacting with a ChromeCast.
 
 module Endeavour.Knowledge.ChromeCast
-  ( cast
-  , audio
-  , video
+  ( -- * Commands
+    cast, pause, unpause, stop
+    -- * Resources
+  , audio, video
   ) where
 
 import           Control.Eff
@@ -33,20 +34,38 @@ import qualified Text.Fuzzy as F
 -- | ChromeCast can handle MP4, MKV, and normal audio formats (including FLAC)
 -- natively. AVIs will be converted on-the-fly via the @-transcode@ flag.
 --
--- @castnow@ will exit successfully when the file is done playing,
+-- @stream2chromecast@ will exit successfully when the file is done playing,
 -- or when another "sender app" takes over the ChromeCast.
 cast :: ERL r => Text -> Eff r ()
 cast f = do
   toCast <- fileToCast f
   chronicle Info $ "Casting " <> toCast
-  void . effShelly "Failed to stream to ChromeCast." . asyncSh $
-    print_stderr False $ print_stdout False $ run_ "stream2chromecast" (castArgs toCast)
+  sheff "Failed to stream to ChromeCast." $ run_ "stream2chromecast" (castArgs toCast)
 
 -- | If the media file is an AVI, we need to transcode it.
 castArgs :: Text -> [Text]
 castArgs f = case breakOnEnd "." f of
   (_, "avi") -> ["-transcode", f]
   _ -> [f]
+
+pause :: ERL r => Eff r ()
+pause = do
+  chronicle Info "Pausing Chromecast."
+  sheff "Couldn't pause the Chromecast." $ run_ "stream2chromecast" ["-pause"]
+
+unpause :: ERL r => Eff r ()
+unpause = do
+  chronicle Info "Resuming paused Chromecast."
+  sheff "Couldn't resume the paused Chromecast." $ run_ "stream2chromecast" ["-continue"]
+
+stop :: ERL r => Eff r ()
+stop = do
+  chronicle Info "Stopping the Chromecast."
+  sheff "Couldn't stop the Chromecast." $ run_ "stream2chromecast" ["-stop"]
+
+-- | Silently and asynchronously run a Shell command.
+sheff :: ERL r => Text -> Sh a -> Eff r ()
+sheff t s = void . effShelly t . asyncSh . print_stderr False $ print_stdout False s
 
 -- | Execute a Shelly command, smothering any thrown exceptions in `Maybe`.
 maybeSh :: Sh a -> IO (Maybe a)
