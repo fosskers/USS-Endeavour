@@ -137,6 +137,7 @@ handle s e = case fromJust . D.head $ _pages s of
   Media  -> mediaHandle s e
   Logs   -> logHandle s e
 
+-- TODO Refactor using `eff`.
 -- | Handle events unique to the Lights page.
 lightHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
 lightHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _lightGroups s of
@@ -155,12 +156,22 @@ lightHandle s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >
 
 -- | Handle events unique to the Media page.
 mediaHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
-mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _mediaFiles s of
-  Nothing -> continue s
-  Just (_, file) -> do
-    res <- liftIO . runEffect (_env s) $ cast file
-    either (\e -> continue (s & msg .~ e)) (\_ -> continue (s & msg .~ file)) res
+mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
+mediaHandle s (VtyEvent (G.EvKey (G.KChar 'p') _)) = eff s pause "Pausing ChromeCast."
+mediaHandle s (VtyEvent (G.EvKey (G.KChar 'c') _)) = eff s unpause "Unpausing ChromeCast."
+mediaHandle s (VtyEvent (G.EvKey (G.KChar 's') _)) = eff s stop "Stopping ChromeCast."
 mediaHandle s (VtyEvent e) = handleEventLensed s mediaFiles handleListEvent e >>= continue
+
+-- | Perform some action based on a `List`'s selected element.
+listEff :: System -> List n1 t -> (t -> Effect b) -> (t -> Text) -> EventM n (Next System)
+listEff s l e t = maybe (continue s) (\(_,i) -> eff s (e i) (t i)) $ listSelectedElement l
+
+-- | Run an `Effect` within the `EventM` context, displaying debug messages
+-- as necessary.
+eff :: System -> Effect b -> Text -> EventM n (Next System)
+eff s e t = do
+  res <- liftIO $ runEffect (_env s) e
+  continue $ either (\err -> s & msg .~ err) (\_ -> s & msg .~ t) res
 
 -- | Handle events unique to the Log page.
 logHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
@@ -191,13 +202,14 @@ main = do
       chronicle' (_conn e) Info "Starting CLI client."
       grps <- either (const []) M.toList <$> runEffect e groups
       vids <- runLift $ runReader video e
+      audi <- runLift $ runReader audio e
       logs <- runLift $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       astr <- either (const 0) length <$> runEffect e astronauts
       let m = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
           p = D.fromList [Lights ..]
           h = list LGroupList (V.fromList grps) 1
-          v = list MediaList (V.fromList $ sort vids) 1
+          v = list MediaList (V.fromList $ sort (vids ++ audi)) 1
           l = list LogList (V.fromList logs) 1
       void . defaultMain app $ System e m p h v l
       slumber e
