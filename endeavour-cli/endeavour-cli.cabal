@@ -10,8 +10,10 @@ cabal-version:       >=1.10
 
 executable endeavour-cli
   main-is:             Endeavour.hs
-  -- other-modules:
-  -- other-extensions:
+
+  other-modules:       Endeavour.Console.UI
+                     , Endeavour.Console.Types
+                     , Endeavour.Console.Events
 
   build-depends:       base >=4.9 && <4.10
                      , brick >= 0.15 && < 0.18
@@ -29,7 +31,6 @@ executable endeavour-cli
                      , vector >= 0.11 && < 0.13
                      , vty >= 5.15 && < 5.16
 
-  -- hs-source-dirs:
   default-language:    Haskell2010
 
   ghc-options: -fwarn-unused-imports -fwarn-unused-binds -threaded
