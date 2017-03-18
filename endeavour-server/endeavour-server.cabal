@@ -15,7 +15,6 @@ executable endeavour-ai
 
   build-depends:       base >=4.9 && <4.10
                      , endeavour
-                     , extensible-effects >= 1.11 && < 1.12
                      , optparse-generic >= 1.1 && < 1.2
                      , servant >= 0.9 && < 0.10
                      , servant-server >= 0.9 && < 0.10

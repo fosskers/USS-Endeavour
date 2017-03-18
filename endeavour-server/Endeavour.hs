@@ -6,9 +6,6 @@
 module Main where
 
 import           Control.Concurrent
-import           Control.Eff.Exception
-import           Control.Eff.Lift
-import           Control.Eff.Reader.Lazy
 import qualified Control.Exception as E
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
@@ -55,7 +52,7 @@ serverT = lamp :<|> status
 -- ship's DB, and rethrows them into the `Handler` Monad. `Handler` is
 -- just a type alias for `ExceptT`.
 effToHandler' :: Env -> Effect a -> Handler a
-effToHandler' env eff = liftIO (runLift . runExc $ runReader eff env) >>= either f pure
+effToHandler' env eff = liftIO (runEffect env eff) >>= either f pure
   where f err = liftIO (chronicle' (_conn env) Fail err) >> throwE err404
 
 -- | A Natural Transformation between our effect stack and the `Handler` Monad.
