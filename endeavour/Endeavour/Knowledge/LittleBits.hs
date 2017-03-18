@@ -3,7 +3,7 @@
 
 -- |
 -- Module    : Endeavour.Knowledge.LittleBits
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
@@ -15,7 +15,6 @@ module Endeavour.Knowledge.LittleBits
   , lamp
   ) where
 
-import Control.Eff
 import Endeavour.Genetics
 import Endeavour.Knowledge.LittleBits.Internal
 import Endeavour.Memory

@@ -17,7 +17,6 @@ module Endeavour.Knowledge.Space
   , astronauts
   ) where
 
-import           Control.Eff hiding ((:>))
 import           Data.Aeson
 import           Data.Proxy
 import qualified Data.Text as T

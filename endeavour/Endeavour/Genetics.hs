@@ -3,24 +3,34 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DataKinds #-}
 
 -- |
 -- Module    : Endeavour.Genetics
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
 -- Data types and aliases used across the code base.
 
-module Endeavour.Genetics where
+module Endeavour.Genetics
+  ( -- * Environment
+    Env(..)
+  , CloudBit(..)
+  , awaken, slumber
+    -- * Effects
+  , L, RL, ERL, Effect
+  , runEffect, liftEither
+    -- * Reexports
+  , Eff
+  , send, ask, asks, throwError
+  ) where
 
-import           Control.Eff
-import           Control.Eff.Exception
-import           Control.Eff.Lift
-import           Control.Eff.Reader.Lazy
+import           Control.Monad.Freer
+import           Control.Monad.Freer.Exception
+import           Control.Monad.Freer.Reader
 import           Data.Aeson (Value)
 import qualified Data.Text as T
-import           Data.Void
 import           Data.Yaml (decodeFile)
 import           Database.SQLite.Simple
 import           Lens.Micro
@@ -31,7 +41,7 @@ import           Network.HTTP.Client.TLS
 ---
 
 -- | Functions who need the @Lift IO@ effect.
-type L r = SetMember Lift (Lift IO) r
+type L r = Member IO r
 
 -- | Functions who need the `Reader` and @Lift IO@ effects.
 type RL r = (Member (Reader Env) r, L r)
@@ -40,7 +50,7 @@ type RL r = (Member (Reader Env) r, L r)
 type ERL r = (Member (Exc T.Text) r, RL r)
 
 -- | The full effect stack, ordered strategically for interplay with `servant`.
-type Effect = Eff (Reader Env :> Exc T.Text :> Lift IO :> Void)
+type Effect = Eff '[Reader Env, Exc T.Text, IO]
 
 -- | A <http://littlebits.cc/ LittleBits> CloudBit's device ID and auth token.
 data CloudBit = CloudBit { _deviceId :: T.Text
@@ -57,7 +67,12 @@ data Env = Env { _conn     :: Connection
 -- | Run the full `Effect` stack. Useful for bringing backend actions
 -- into the `IO` monad, for further lifting via `liftIO`.
 runEffect :: Env -> Effect a -> IO (Either T.Text a)
-runEffect env eff = runLift . runExc $ runReader eff env
+runEffect env eff = runM . runError $ runReader eff env
+
+liftEither :: Member (Exc e) r => Either e a -> Eff r a
+liftEither (Left e) = throwError e
+liftEither (Right a) = pure a
+{-# INLINE liftEither #-}
 
 -- | Given a `FilePath` to a config file, read it and parse out the runtime
 -- environment.

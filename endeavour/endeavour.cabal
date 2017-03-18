@@ -28,8 +28,7 @@ library
                      , aeson >= 1.0 && < 1.1
                      , async >= 2.1 && < 2.2
                      , containers
---                     , dhall >= 1.0 && < 1.1
-                     , extensible-effects >= 1.11 && < 1.12
+                     , freer-effects >= 0.3 && < 0.4
                      , fuzzy >= 0.1 && < 0.2
                      , http-client >= 0.5 && < 0.6
                      , http-client-tls >= 0.3 && < 0.4
@@ -54,7 +53,7 @@ test-suite endeavour-test
   build-depends:       base >=4.9 && <4.10
                      , containers
                      , endeavour
-                     , extensible-effects
+                     , freer-effects
                      , sqlite-simple
                      , tasty >= 0.10.1.2
                      , tasty-hunit >= 0.9.2

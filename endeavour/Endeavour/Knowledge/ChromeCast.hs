@@ -1,9 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module    : Endeavour.Knowledge.ChromeCast
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
@@ -16,10 +17,6 @@ module Endeavour.Knowledge.ChromeCast
   , audio, video
   ) where
 
-import           Control.Eff
-import           Control.Eff.Exception
-import           Control.Eff.Lift
-import           Control.Eff.Reader.Lazy
 import           Control.Monad (void)
 import           Data.Monoid
 import           Data.Text (Text, breakOnEnd)
@@ -73,7 +70,7 @@ maybeSh s = catchany (Just <$> shelly s) (\_ -> pure Nothing)
 
 -- | Catch any Shelly exception and rethrow with a given message.
 effShelly :: ERL r => Text -> Sh a -> Eff r a
-effShelly e s = lift (maybeSh s) >>= maybe (throwExc e) pure
+effShelly e s = send (maybeSh s) >>= maybe (throwError e) pure
 
 -- | Given some suggestion text, finds a suitable media file to cast,
 -- if it can.
@@ -87,9 +84,9 @@ fileToCast' t fs = maybe (Left "No suitable media file found.") Right (F.simpleF
 -- | All audio files. Assumes that each file in `audio/` is a directory,
 -- and that each directory has no further subdirectories.
 audio :: RL r => Eff r [Text]
-audio = reader _media >>= lift . shelly . f
+audio = asks _media >>= send . shelly @IO . f
   where f p = concat <$> (ls (p </> ("audio" :: Text)) >>= mapM lsT)
 
 -- | All video files.
 video :: RL r => Eff r [Text]
-video = reader _media >>= lift . shelly . lsT . (</> ("video" :: Text))
+video = asks _media >>= send . shelly @IO . lsT . (</> ("video" :: Text))

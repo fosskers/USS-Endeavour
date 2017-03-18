@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-import           Control.Eff.Exception
-import           Control.Eff.Lift
-import           Control.Eff.Reader.Lazy
+import           Control.Monad.Freer
+import           Control.Monad.Freer.Exception
+import           Control.Monad.Freer.Reader
 import qualified Data.Map.Lazy as M
 import           Data.Text (Text)
 import           Database.SQLite.Simple
@@ -57,13 +57,13 @@ statusT e = do
   r <- f
   r @?= Right (CBStatus "Computer" (_deviceId $ _cloudbit e) 135545 False)
   where f :: IO (Either Text CBStatus)
-        f = runLift . runExc $ runReader status e
+        f = runM . runError $ runReader status e
 
 -- | A test for any `ERL` function that returns `()`.
 runT :: Env -> Effect () -> Assertion
 runT env eff = f >>= assertRight "Crap"
   where f :: IO (Either Text ())
-        f = runLift . runExc $ runReader eff env
+        f = runM . runError $ runReader eff env
 
 outputT :: Env -> Assertion
 outputT e = runT e . emit $ CBOutput 100 3000
@@ -76,12 +76,12 @@ briT e = runT e $ do
   overLight lightOff i
 
 ioIso :: Env -> Assertion
-ioIso = runLift . runReader f
+ioIso = runM . runReader f
   where f = do
-          reader _conn >>= lift . wake
+          asks _conn >>= send . wake
           chronicle Info "chronicle"
           (Log _ cat t : _) <- recall Nothing
-          lift ((cat, t) @?= (Info, "chronicle"))
+          send ((cat, t) @?= (Info, "chronicle"))
 
 lightsT :: Env -> Assertion
 lightsT e = do

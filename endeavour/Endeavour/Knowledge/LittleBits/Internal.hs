@@ -6,7 +6,7 @@
 
 -- |
 -- Module    : Endeavour.Knowledge.LittleBits.Internal
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
@@ -19,8 +19,6 @@ module Endeavour.Knowledge.LittleBits.Internal
   , emit
   ) where
 
-import Control.Eff hiding ((:>))
-import Control.Eff.Reader.Lazy
 import Control.Monad (void)
 import Data.Aeson
 import Data.Proxy
@@ -81,13 +79,13 @@ _device :<|> _output = client api
 -- | Cause a CloudBit to emit voltage.
 emit :: ERL r => CBOutput -> Eff r ()
 emit cbo = do
-  (CloudBit did auth) <- reader _cloudbit
+  (CloudBit did auth) <- asks _cloudbit
   void . transmit baseUrl $ _output (unpack did) (header auth) cbo
 
 -- | The current status of the CloudBit.
 status :: ERL r => Eff r CBStatus
 status = do
-  (CloudBit did auth) <- reader _cloudbit
+  (CloudBit did auth) <- asks _cloudbit
   transmit baseUrl . _device (unpack did) $ header auth
 
 -- | Format a header for the CloudBit auth token.

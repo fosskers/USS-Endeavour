@@ -2,7 +2,7 @@
 
 -- |
 -- Module    : Endeavour.Knowledge.Hue
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
@@ -52,7 +52,6 @@ module Endeavour.Knowledge.Hue
   , colours
   ) where
 
-import           Control.Eff
 import qualified Data.Map.Lazy as M
 import           Data.Maybe (fromJust)
 import           Data.Word

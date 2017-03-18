@@ -7,7 +7,7 @@
 
 -- |
 -- Module    : Endeavour.Knowledge.Hue.Internal
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
@@ -27,8 +27,6 @@ module Endeavour.Knowledge.Hue.Internal
   , gname, glights, gaction
   ) where
 
-import Control.Eff hiding ((:>))
-import Control.Eff.Reader.Lazy
 import Control.Monad (void)
 import Data.Aeson
 import Data.Aeson.Types (Parser)
@@ -118,8 +116,8 @@ bridgeUrl (unpack -> u) = BaseUrl Http u 80 ""
 -- | Make a call to the Bridge.
 toBridge :: ERL r => (Text -> ClientM a) -> Eff r a
 toBridge c = do
-  hu <- reader _hueUser
-  hi <- reader _hueIp
+  hu <- asks _hueUser
+  hi <- asks _hueIp
   transmit (bridgeUrl hi) $ c hu
 
 -- | A `Light`, from its `ID`.

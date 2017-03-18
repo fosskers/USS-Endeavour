@@ -3,7 +3,7 @@
 
 -- |
 -- Module    : Endeavour.Memory
--- Copyright : (c) Colin Woodbury, 2016
+-- Copyright : (c) Colin Woodbury, 2016 - 2017
 -- License   : BSD3
 -- Maintainer: Colin Woodbury <colingw@gmail.com>
 --
@@ -19,9 +19,6 @@ module Endeavour.Memory
   , recall
   ) where
 
-import           Control.Eff
-import           Control.Eff.Lift
-import           Control.Eff.Reader.Lazy
 import           Data.Aeson
 import qualified Data.Text as T
 import           Data.Time.Clock
@@ -64,8 +61,8 @@ wake c = execute_ c "CREATE TABLE IF NOT EXISTS shiplog (id INTEGER PRIMARY KEY,
 -- | Log some event message.
 chronicle :: RL r => LogCat -> T.Text -> Eff r ()
 chronicle cat t = do
-  c <- reader _conn
-  lift $ chronicle' c cat t
+  c <- asks _conn
+  send $ chronicle' c cat t
 
 -- | Log some event message via the `IO` Monad.
 chronicle' :: Connection -> LogCat -> T.Text -> IO ()
@@ -76,6 +73,6 @@ chronicle' conn cat t = do
 -- | Probe the Ship's memory for event logs. An optional limit factor can be
 -- supplied.
 recall :: RL r => Maybe Word16 -> Eff r [Log]
-recall m = reader _conn >>= lift . f m
+recall m = asks _conn >>= send . f m
   where f Nothing  c = query_ c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC;"
         f (Just n) c = query c "SELECT dt, cat, log FROM shiplog ORDER BY dt DESC LIMIT ?;" $ Only n
