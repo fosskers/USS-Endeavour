@@ -23,7 +23,8 @@ module Endeavour.Genetics
   , runEffect, liftEither
     -- * Reexports
   , Eff
-  , send, ask, asks, throwError
+  , ask, asks, throwError
+  , send, runReader, runM
   ) where
 
 import           Control.Monad.Freer
@@ -40,13 +41,13 @@ import           Network.HTTP.Client.TLS
 
 ---
 
--- | Functions who need the @Lift IO@ effect.
+-- | Functions who need `IO`.
 type L r = Member IO r
 
--- | Functions who need the `Reader` and @Lift IO@ effects.
+-- | Functions who need the `Reader` and `IO` effects.
 type RL r = (Member (Reader Env) r, L r)
 
--- | Functions who need the `Exc`, `Reader`, and @Lift IO@ effects.
+-- | Functions who need the `Exc`, `Reader`, and `IO` effects.
 type ERL r = (Member (Exc T.Text) r, RL r)
 
 -- | The full effect stack, ordered strategically for interplay with `servant`.
