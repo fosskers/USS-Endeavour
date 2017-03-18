@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Endeavour.Console.UI where
+module Endeavour.Console.UI ( ui ) where
 
 import           Brick
 import           Brick.Widgets.Border
@@ -19,11 +19,19 @@ import           Endeavour.Memory
 
 ---
 
-boxy :: Widget n -> Widget n
-boxy = padAll 5
+-- | The final conglomeration of `Widget`s.
+ui :: System -> Widget RName
+ui s = boldBorder "Endeavour System Controls" $ widgets s
 
 widgets :: System -> Widget RName
 widgets s = center (boxy . page s . fromJust . D.head $ _pages s) <=> footer s
+
+-- | Put a border with title text around some `Widget`.
+boldBorder :: T.Text -> Widget n -> Widget n
+boldBorder t w = withBorderStyle unicodeBold $ borderWithLabel (padLeftRight 1 $ txt t) w
+
+boxy :: Widget n -> Widget n
+boxy = padAll 5
 
 lights :: List RName (t, Group) -> Widget RName
 lights = renderList f False
@@ -71,7 +79,3 @@ footer s = hBox
         rights = foldl1 (<+>) . intersperse (txt " | ") $ map f [Lights ..]
         f p | p == curr = withAttr selected . txt . T.pack $ show p
             | otherwise = txt . T.pack $ show p
-
--- | The final conglomeration of `Widget`s.
-ui :: System -> Widget RName
-ui s = withBorderStyle unicodeBold . borderWithLabel (padLeftRight 1 $ txt "Endeavour System Controls") $ widgets s

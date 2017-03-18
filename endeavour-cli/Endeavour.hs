@@ -6,8 +6,6 @@ module Main where
 
 import           Brick
 import           Brick.Widgets.List
-import           Control.Eff.Lift
-import           Control.Eff.Reader.Lazy
 import           Control.Monad (void)
 import           Data.List (sort)
 import qualified Data.Map.Strict as M
@@ -55,9 +53,9 @@ main = do
     Just e  -> do
       chronicle' (_conn e) Info "Starting CLI client."
       grps <- either (const []) M.toList <$> runEffect e groups
-      vids <- runLift $ runReader video e
-      audi <- runLift $ runReader audio e
-      logs <- runLift $ runReader (recall Nothing) e
+      vids <- runM $ runReader video e
+      audi <- runM $ runReader audio e
+      logs <- runM $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       astr <- either (const 0) length <$> runEffect e astronauts
       let m = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr

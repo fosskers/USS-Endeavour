@@ -20,7 +20,6 @@ executable endeavour-cli
                      , containers
                      , deque >= 0.2 && < 0.3
                      , endeavour >= 1.0 && < 1.1
-                     , extensible-effects >= 1.11 && < 1.12
                      , microlens >= 0.4 && < 0.5
                      , microlens-th >= 0.4 && < 0.5
                      , optparse-generic >= 1.1 && < 1.2
