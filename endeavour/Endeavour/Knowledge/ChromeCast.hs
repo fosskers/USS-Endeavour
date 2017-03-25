@@ -96,8 +96,8 @@ audio = asks _media >>= send . shelly @IO . f
 -- directory, and that each directory has no further subdirectories.
 albums :: RL r => Eff r [Media]
 albums = f <$> asks _media <*> audio
-  where f fp fs = map h . groupBy (\(a,_) (b,_) -> a == b) . sort $ map (g fp) fs
-        g fp t = maybe ("",t) (T.breakOn "/") $ T.stripPrefix (fp <> "audio/") t
+  where f fp fs = map h . groupBy (\(a,_) (b,_) -> a == b) . sort $ map (\t -> (g fp t, t)) fs
+        g fp t = maybe "" (fst . T.breakOn "/") $ T.stripPrefix (fp <> "audio/") t
         h ps = Album (fst $ head ps) $ map snd ps
 
 video :: RL r => Eff r [T.Text]
