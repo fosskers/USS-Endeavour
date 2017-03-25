@@ -9,16 +9,15 @@ import           Brick.Widgets.Center
 import           Brick.Widgets.List
 import           Data.List (intersperse)
 import           Data.Maybe (fromJust)
-import           Data.Monoid
 import qualified Data.Text as T
 import           Data.Time.Clock (UTCTime)
 import           Data.Time.Format
 import qualified Deque as D
 import           Endeavour.Console.Types
 import           Endeavour.Genetics
+import           Endeavour.Knowledge.ChromeCast (Media(..))
 import           Endeavour.Knowledge.Hue hiding (lights)
 import           Endeavour.Memory
-import           Lens.Micro
 
 ---
 
@@ -44,16 +43,20 @@ lights = renderList f False
         o g | isOn $ _gaction g = withAttr onAttr $ txt "ON "
             | otherwise = withAttr offAttr $ txt "OFF"
 
-media :: T.Text -> List RName T.Text -> Widget RName
-media path = renderList f False
-  where f False e = box $ shorten e
-        f True e = withAttr selected . box $ shorten e
-        shorten t = maybe t id $ T.stripPrefix path t
-        box t = case T.splitAt 5 t & _2 %~ T.drop 1 of
-          ("audio", file) -> horiz [ bracket (txt "audio"), album file ]
-          ("video", file) -> horiz [ bracket (txt "video"), txt file ]
-        album t = case T.breakOn "/" t & _2 %~ T.drop 1 of
-          (alb, file) -> txt $ "[" <> alb <> "] " <> file
+media :: T.Text -> List RName Media -> List RName T.Text -> Widget RName
+media path ms ts = renderList f True ms <+> (boldBorder "Album" (pma $ renderList g False ts) <=> boldBorder "Playlist" (pma $ txt "Media files to cast go here"))
+  where f False e = box e
+        f True e = withAttr selected $ box e
+        box (Video t)   = horiz [ bracket (txt "video"), txt $ displayName t ]
+        box (Album t _) = horiz [ bracket (txt "audio"), txt t ]
+        g False e = txt $ displayName e
+        g True e = withAttr selected . txt $ displayName e
+
+pma :: Widget n -> Widget n
+pma = padLeft Max . padRight Max . padTop Max . padBottom Max
+
+displayName :: T.Text -> T.Text
+displayName = snd . T.breakOnEnd "/"
 
 logs :: List RName Log -> Widget RName
 logs = renderList f False
@@ -82,7 +85,7 @@ horiz = hBox . map (padRight $ Pad 1)
 -- This is to turn pages/tabs in the app.
 page :: System -> Page -> Widget RName
 page s Lights = lights $ _lightGroups s
-page s Media = media (_media $ _env s) $ _mediaFiles s
+page s Media = media (_media $ _env s) (_mediaFiles s) (_albumTracks s)
 page s Logs = logs $ _logEntries s
 
 footer :: System -> Widget n

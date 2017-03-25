@@ -7,7 +7,6 @@ module Main where
 import           Brick
 import           Brick.Widgets.List
 import           Control.Monad (void)
-import           Data.List (sort)
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -41,6 +40,7 @@ app = App { appDraw = \s -> [ui s]
                                                    , (logFail, bg G.red)
                                                    , (onAttr, bg G.yellow)
                                                    , (offAttr, bg G.red)
+                                                   , (albumAttr, G.withStyle G.defAttr G.underline)
                                                    ]
           }
 
@@ -53,16 +53,16 @@ main = do
     Just e  -> do
       chronicle' (_conn e) Info "Starting CLI client."
       grps <- either (const []) M.toList <$> runEffect e groups
-      vids <- runM $ runReader video e
-      audi <- runM $ runReader audio e
+      mdia <- runM $ runReader ((++) <$> albums <*> videos) e
       logs <- runM $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       astr <- either (const 0) length <$> runEffect e astronauts
       let m = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
           p = D.fromList [Lights ..]
           h = list LGroupList (V.fromList grps) 1
-          v = list MediaList (V.fromList $ sort (vids ++ audi)) 1
+          v = list MediaList (V.fromList mdia) 1
           l = list LogList (V.fromList logs) 1
-      void . defaultMain app $ System e m p h v l
+          a = list AlbumTracks (V.fromList []) 1
+      void . defaultMain app $ System e m p h v a l
       slumber e
       putStrLn "Shutdown complete."

@@ -8,6 +8,7 @@ import           Brick.Widgets.List
 import           Data.Text (Text)
 import qualified Deque as D
 import           Endeavour.Genetics
+import           Endeavour.Knowledge.ChromeCast (Media)
 import           Endeavour.Knowledge.Hue hiding (lights)
 import           Endeavour.Memory
 import           Lens.Micro.TH
@@ -15,7 +16,7 @@ import           Lens.Micro.TH
 ---
 
 -- | All resource names.
-data RName = LGroupList | MediaList | LogList deriving (Eq, Show, Ord)
+data RName = LGroupList | MediaList | LogList | AlbumTracks deriving (Eq, Show, Ord)
 
 -- | Possible application pages.
 data Page = Lights | Media | Logs deriving (Eq, Enum, Show)
@@ -25,7 +26,8 @@ data System = System { _env         :: Env
                      , _msg         :: Text
                      , _pages       :: D.Deque Page
                      , _lightGroups :: List RName (ID, Group)
-                     , _mediaFiles  :: List RName Text
+                     , _mediaFiles  :: List RName Media
+                     , _albumTracks :: List RName Text
                      , _logEntries  :: List RName Log }
 makeLenses ''System
 
@@ -43,3 +45,6 @@ onAttr = attrName "lightOn"
 
 offAttr :: AttrName
 offAttr = attrName "lightOff"
+
+albumAttr :: AttrName
+albumAttr = attrName "album"

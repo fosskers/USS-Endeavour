@@ -8,7 +8,9 @@ import           Brick
 import           Brick.Widgets.List
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Maybe (fromJust)
+import           Data.Monoid ((<>))
 import           Data.Text (Text)
+import qualified Data.Vector as V
 import qualified Deque as D
 import           Endeavour.Console.Types
 import           Endeavour.Genetics
@@ -49,11 +51,20 @@ lightHandle s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >
 
 -- | Handle events unique to the Media page.
 mediaHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
-mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
+--mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
 mediaHandle s (VtyEvent (G.EvKey (G.KChar 'p') _)) = eff s pause "Pausing ChromeCast."
 mediaHandle s (VtyEvent (G.EvKey (G.KChar 'c') _)) = eff s unpause "Unpausing ChromeCast."
 mediaHandle s (VtyEvent (G.EvKey (G.KChar 's') _)) = eff s stop "Stopping ChromeCast."
+mediaHandle s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ pushAlbumTracks s
 mediaHandle s (VtyEvent e) = handleEventLensed s mediaFiles handleListEvent e >>= continue
+
+-- | Display a TAB'd Album's tracks in the tracks list.
+pushAlbumTracks :: System -> System
+pushAlbumTracks s = case listSelectedElement $ _mediaFiles s of
+  Nothing -> s
+  Just (_, Video _) -> s & msg .~ "Can't expand - that's a video file."
+  Just (_, Album t ts) -> s & albumTracks %~ listReplace (V.fromList ts) (Just 0)
+                            & msg .~ "Displaying tracks for: " <> t
 
 -- | Perform some action based on a `List`'s selected element.
 listEff :: System -> List n1 t -> (t -> Effect b) -> (t -> Text) -> EventM n (Next System)
