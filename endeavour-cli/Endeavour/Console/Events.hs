@@ -28,35 +28,41 @@ handle s (VtyEvent (G.EvKey G.KEsc _)) = halt s
 handle s (VtyEvent (G.EvKey G.KLeft [G.MShift])) = continue (s & msg .~ "<==" & pages %~ D.shiftRight)
 handle s (VtyEvent (G.EvKey G.KRight [G.MShift])) = continue (s & msg .~ "==>" & pages %~ D.shiftLeft)
 handle s e = case fromJust . D.head $ _pages s of
-  Lights -> lightHandle s e
-  Media  -> mediaHandle s e
-  Logs   -> logHandle s e
+  Lights -> lightH s e
+  Media  -> mediaH s e
+  Logs   -> logH s e
 
 -- TODO Refactor using `eff`.
 -- | Handle events unique to the Lights page.
-lightHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
-lightHandle s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _lightGroups s of
+lightH :: System -> BrickEvent t t1 -> EventM RName (Next System)
+lightH s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _lightGroups s of
   Nothing -> continue s
   Just (_, (i, g)) -> do
     liftIO . runEffect (_env s) $ overGroup lightOn i
     continue (s & msg .~ [st|ON: %s|] (_gname g)
                 & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOn))
-lightHandle s (VtyEvent (G.EvKey G.KBS _)) = case listSelectedElement $ _lightGroups s of
+lightH s (VtyEvent (G.EvKey G.KBS _)) = case listSelectedElement $ _lightGroups s of
   Nothing -> continue s
   Just (_, (i, g)) -> do
     liftIO . runEffect (_env s) $ overGroup lightOff i
     continue (s & msg .~ [st|OFF: %s|] (_gname g)
                 & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOff))
-lightHandle s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= continue
+lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= continue
 
 -- | Handle events unique to the Media page.
-mediaHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
---mediaHandle s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
-mediaHandle s (VtyEvent (G.EvKey (G.KChar 'p') _)) = eff s pause "Pausing ChromeCast."
-mediaHandle s (VtyEvent (G.EvKey (G.KChar 'c') _)) = eff s unpause "Unpausing ChromeCast."
-mediaHandle s (VtyEvent (G.EvKey (G.KChar 's') _)) = eff s stop "Stopping ChromeCast."
-mediaHandle s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ pushAlbumTracks s
-mediaHandle s (VtyEvent e) = handleEventLensed s mediaFiles handleListEvent e >>= continue
+mediaH :: System -> BrickEvent t t1 -> EventM RName (Next System)
+--medi s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
+mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _)) = eff s pause "Pausing ChromeCast."
+mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _)) = eff s unpause "Unpausing ChromeCast."
+mediaH s (VtyEvent (G.EvKey (G.KChar 's') _)) = eff s stop "Stopping ChromeCast."
+mediaH s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ tabH s
+mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleListEvent e >>= continue
+                      | otherwise = handleEventLensed s mediaFiles handleListEvent e >>= continue
+
+-- | Decide where to move the cursor focus.
+tabH :: System -> System
+tabH s | _trackView s = s & trackView .~ False
+       | otherwise = pushAlbumTracks s
 
 -- | Display a TAB'd Album's tracks in the tracks list.
 pushAlbumTracks :: System -> System
@@ -64,6 +70,7 @@ pushAlbumTracks s = case listSelectedElement $ _mediaFiles s of
   Nothing -> s
   Just (_, Video _) -> s & msg .~ "Can't expand - that's a video file."
   Just (_, Album t ts) -> s & albumTracks %~ listReplace (V.fromList ts) (Just 0)
+                            & trackView .~ True
                             & msg .~ "Displaying tracks for: " <> t
 
 -- | Perform some action based on a `List`'s selected element.
@@ -78,5 +85,5 @@ eff s e t = do
   continue $ either (\err -> s & msg .~ err) (\_ -> s & msg .~ t) res
 
 -- | Handle events unique to the Log page.
-logHandle :: System -> BrickEvent t t1 -> EventM RName (Next System)
-logHandle s (VtyEvent e) = handleEventLensed s logEntries handleListEvent e >>= continue
+logH :: System -> BrickEvent t t1 -> EventM RName (Next System)
+logH s (VtyEvent e) = handleEventLensed s logEntries handleListEvent e >>= continue
