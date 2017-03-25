@@ -28,6 +28,7 @@ data System = System { _env         :: Env
                      , _lightGroups :: List RName (ID, Group)
                      , _mediaFiles  :: List RName Media
                      , _albumTracks :: List RName Text
+                     , _trackView   :: Bool
                      , _logEntries  :: List RName Log }
 makeLenses ''System
 

@@ -57,12 +57,15 @@ main = do
       logs <- runM $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       astr <- either (const 0) length <$> runEffect e astronauts
-      let m = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
-          p = D.fromList [Lights ..]
-          h = list LGroupList (V.fromList grps) 1
-          v = list MediaList (V.fromList mdia) 1
-          l = list LogList (V.fromList logs) 1
-          a = list AlbumTracks (V.fromList []) 1
-      void . defaultMain app $ System e m p h v a l
+      let sys = System
+            { _env = e
+            , _msg = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
+            , _pages = D.fromList [Lights ..]
+            , _lightGroups = list LGroupList (V.fromList grps) 1
+            , _mediaFiles  = list MediaList (V.fromList mdia) 1
+            , _albumTracks = list AlbumTracks (V.fromList []) 1
+            , _trackView   = False
+            , _logEntries  = list LogList (V.fromList logs) 1 }
+      void $ defaultMain app sys
       slumber e
       putStrLn "Shutdown complete."
