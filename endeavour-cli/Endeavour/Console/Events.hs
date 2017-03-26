@@ -10,7 +10,6 @@ import           Control.Monad.IO.Class (liftIO)
 import           Data.Foldable (toList)
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
-import           Data.Text (Text)
 import qualified Data.Vector as V
 import qualified Deque as D
 import           Endeavour.Console.Types
@@ -52,21 +51,29 @@ lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= co
 
 -- | Handle events unique to the Media page.
 mediaH :: System -> BrickEvent t t1 -> EventM RName (Next System)
---medi s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
-mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = eff s pause "Pausing ChromeCast."
-mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = eff s unpause "Unpausing ChromeCast."
-mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = eff s stop "Stopping ChromeCast."
+mediaH s (VtyEvent (G.EvKey G.KEnter _))       = castPlaylist s
+mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = eff s pause (\_ -> s & msg .~ "Pausing ChromeCast.")
+mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = eff s unpause (\_ -> s & msg .~ "Unpausing ChromeCast.")
+mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = eff s stop (\_ -> s & msg .~ "Stopping ChromeCast.")
 mediaH s (VtyEvent (G.EvKey G.KBS _))          = continue (s & playlist %~ listClear)
 mediaH s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ tabH s
 mediaH s (VtyEvent (G.EvKey (G.KChar ' ') _))  = continue $ spaceH s
 mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleListEvent e >>= continue
                       | otherwise = handleEventLensed s mediaFiles handleListEvent e >>= continue
 
+-- | GOAL: Cast everything in the playlist sequentially.
+-- CURR: Casts the top item in the playlist.
+castPlaylist :: System -> EventM RName (Next System)
+castPlaylist s = case listSelectedElement $ _playlist s of
+  Nothing -> continue (s & msg .~ "Nothing in the playlist.")
+  Just (_,i) -> eff s (cast i) (\_ -> s & playlist %~ listRemove 0)
+
 -- | Decide where to move the cursor focus.
 tabH :: System -> System
 tabH s | _trackView s = s & trackView .~ False
        | otherwise = pushAlbumTracks s
 
+-- | Add a track or album to the playlist.
 spaceH :: System -> System
 spaceH s | _trackView s = case listSelectedElement $ _albumTracks s of
              Nothing -> s
@@ -86,16 +93,13 @@ pushAlbumTracks s = case listSelectedElement $ _mediaFiles s of
                             & trackView .~ True
                             & msg .~ "Displaying tracks for: " <> t
 
--- | Perform some action based on a `List`'s selected element.
-listEff :: System -> List n1 t -> (t -> Effect b) -> (t -> Text) -> EventM n (Next System)
-listEff s l e t = maybe (continue s) (\(_,i) -> eff s (e i) (t i)) $ listSelectedElement l
-
 -- | Run an `Effect` within the `EventM` context, displaying debug messages
--- as necessary.
-eff :: System -> Effect b -> Text -> EventM n (Next System)
-eff s e t = do
+-- as necessary. Requires a function @b -> System@ which produces the next
+-- state in the case where the `Effect` was successful.
+eff :: System -> Effect b -> (b -> System) -> EventM n (Next System)
+eff s e f = do
   res <- liftIO $ runEffect (_env s) e
-  continue $ either (\err -> s & msg .~ err) (\_ -> s & msg .~ t) res
+  continue $ either (\err -> s & msg .~ err) f res
 
 -- | Handle events unique to the Log page.
 logH :: System -> BrickEvent t t1 -> EventM RName (Next System)
