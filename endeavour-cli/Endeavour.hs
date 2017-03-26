@@ -64,6 +64,7 @@ main = do
             , _lightGroups = list LGroupList (V.fromList grps) 1
             , _mediaFiles  = list MediaList (V.fromList mdia) 1
             , _albumTracks = list AlbumTracks (V.fromList []) 1
+            , _playlist    = list Playlist (V.fromList []) 1
             , _trackView   = False
             , _logEntries  = list LogList (V.fromList logs) 1 }
       void $ defaultMain app sys

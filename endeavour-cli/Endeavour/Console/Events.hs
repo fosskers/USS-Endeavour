@@ -7,6 +7,7 @@ module Endeavour.Console.Events where
 import           Brick
 import           Brick.Widgets.List
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Foldable (toList)
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -52,10 +53,12 @@ lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= co
 -- | Handle events unique to the Media page.
 mediaH :: System -> BrickEvent t t1 -> EventM RName (Next System)
 --medi s (VtyEvent (G.EvKey G.KEnter _)) = listEff s (_mediaFiles s) cast id
-mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _)) = eff s pause "Pausing ChromeCast."
-mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _)) = eff s unpause "Unpausing ChromeCast."
-mediaH s (VtyEvent (G.EvKey (G.KChar 's') _)) = eff s stop "Stopping ChromeCast."
+mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = eff s pause "Pausing ChromeCast."
+mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = eff s unpause "Unpausing ChromeCast."
+mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = eff s stop "Stopping ChromeCast."
+mediaH s (VtyEvent (G.EvKey G.KBS _))          = continue (s & playlist %~ listClear)
 mediaH s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ tabH s
+mediaH s (VtyEvent (G.EvKey (G.KChar ' ') _))  = continue $ spaceH s
 mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleListEvent e >>= continue
                       | otherwise = handleEventLensed s mediaFiles handleListEvent e >>= continue
 
@@ -63,6 +66,16 @@ mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleLis
 tabH :: System -> System
 tabH s | _trackView s = s & trackView .~ False
        | otherwise = pushAlbumTracks s
+
+spaceH :: System -> System
+spaceH s | _trackView s = case listSelectedElement $ _albumTracks s of
+             Nothing -> s
+             Just (_,i) -> s & playlist %~ (\l -> listInsert (length l) i l)
+                             & msg .~ [st|Adding %s to playlist.|] (displayName i)
+         | otherwise = case listSelectedElement $ _mediaFiles s of
+               Nothing -> s
+               Just (_, Video t) -> s & playlist %~ (\l -> listInsert (length l) t l)
+               Just (_, Album _ ts) -> s & playlist .~ list Playlist (V.fromList $ toList (_playlist s) <> ts) 1
 
 -- | Display a TAB'd Album's tracks in the tracks list.
 pushAlbumTracks :: System -> System

@@ -43,9 +43,10 @@ lights = renderList f False
             | otherwise = withAttr offAttr $ txt "OFF"
 
 media :: System -> Widget RName
-media s = renderList f True ms <+> (boldBorder "Album" (pma $ renderList g False ts) <=> boldBorder "Playlist" (pma $ txt "Media files to cast go here"))
+media s = renderList f True ms <+> (boldBorder "Album" (pma $ renderList g False ts) <=> boldBorder "Playlist" (pma $ renderList h False ps))
   where ms = _mediaFiles s
         ts = _albumTracks s
+        ps = _playlist s
         f False e = box e
         f True e | _trackView s = box e
                  | otherwise = withAttr selected $ box e
@@ -54,12 +55,10 @@ media s = renderList f True ms <+> (boldBorder "Album" (pma $ renderList g False
         g False e = txt $ displayName e
         g True e | _trackView s = withAttr selected . txt $ displayName e
                  | otherwise = txt $ displayName e
+        h _ e = txt $ displayName e
 
 pma :: Widget n -> Widget n
 pma = padLeft Max . padRight Max . padTop Max . padBottom Max
-
-displayName :: T.Text -> T.Text
-displayName = snd . T.breakOnEnd "/"
 
 logs :: List RName Log -> Widget RName
 logs = renderList f False
