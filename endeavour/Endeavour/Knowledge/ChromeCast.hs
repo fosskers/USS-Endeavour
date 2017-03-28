@@ -14,7 +14,7 @@ module Endeavour.Knowledge.ChromeCast
   ( -- * Types
     Media(..)
   -- * Commands
-  , cast, pause, unpause, stop
+  , cast, castAll, pause, unpause, stop
     -- * Resources
   , albums, videos
   ) where
@@ -44,6 +44,10 @@ cast f = do
   toCast <- fileToCast f
   chronicle Info $ "Casting " <> toCast
   sheff "Failed to stream to ChromeCast." $ run_ "stream2chromecast" (castArgs toCast)
+
+-- | Cast a list of files sequentially.
+castAll :: ERL r => [T.Text] -> Eff r ()
+castAll = sheff "Failed to stream." . sequence_ . map (run_ "stream2chromecast" . castArgs)
 
 -- | If the media file is an AVI, we need to transcode it.
 castArgs :: T.Text -> [T.Text]
