@@ -61,12 +61,9 @@ mediaH s (VtyEvent (G.EvKey (G.KChar ' ') _))  = continue $ spaceH s
 mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleListEvent e >>= continue
                       | otherwise = handleEventLensed s mediaFiles handleListEvent e >>= continue
 
--- | GOAL: Cast everything in the playlist sequentially.
--- CURR: Casts the top item in the playlist.
+-- | Cast everything in the playlist sequentially.
 castPlaylist :: System -> EventM RName (Next System)
-castPlaylist s = case listSelectedElement $ _playlist s of
-  Nothing -> continue (s & msg .~ "Nothing in the playlist.")
-  Just (_,i) -> eff s (cast i) (\_ -> s & playlist %~ listRemove 0)
+castPlaylist s = eff s (castAll . toList $ _playlist s) (\_ -> s & msg .~ "Streaming playlist.")
 
 -- | Decide where to move the cursor focus.
 tabH :: System -> System
