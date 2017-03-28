@@ -75,6 +75,7 @@ spaceH :: System -> System
 spaceH s | _trackView s = case listSelectedElement $ _albumTracks s of
              Nothing -> s
              Just (_,i) -> s & playlist %~ (\l -> listInsert (length l) i l)
+                             & albumTracks %~ listMoveDown
                              & msg .~ [st|Adding %s to playlist.|] (displayName i)
          | otherwise = case listSelectedElement $ _mediaFiles s of
                Nothing -> s
