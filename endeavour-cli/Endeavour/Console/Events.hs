@@ -67,7 +67,7 @@ castPlaylist s = eff s (castAll . toList $ _playlist s) (\_ -> s & msg .~ "Strea
 
 -- | Decide where to move the cursor focus.
 tabH :: System -> System
-tabH s | _trackView s = s & trackView .~ False
+tabH s | _trackView s = s & trackView .~ False & albumTracks %~ listClear
        | otherwise = pushAlbumTracks s
 
 -- | Add a track or album to the playlist.

@@ -43,7 +43,7 @@ lights = renderList f False
             | otherwise = withAttr offAttr $ txt "OFF"
 
 media :: System -> Widget RName
-media s = renderList f True ms <+> (boldBorder "Album" (pma $ renderList g False ts) <=> boldBorder "Playlist" (pma $ renderList h False ps))
+media s = renderList f True ms <+> (boldBorder i (pma $ renderList g False ts) <=> boldBorder "Playlist" (pma $ renderList h False ps))
   where ms = _mediaFiles s
         ts = _albumTracks s
         ps = _playlist s
@@ -56,6 +56,10 @@ media s = renderList f True ms <+> (boldBorder "Album" (pma $ renderList g False
         g True e | _trackView s = withAttr selected . txt $ displayName e
                  | otherwise = txt $ displayName e
         h _ e = txt $ displayName e
+        i | _trackView s = case listSelectedElement ms of
+              Just (_, Album a _) -> a
+              _ -> "Album"
+          | otherwise = "Album"
 
 pma :: Widget n -> Widget n
 pma = padLeft Max . padRight Max . padTop Max . padBottom Max
