@@ -2,10 +2,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 
-module Endeavour.Console.Events where
+module Endeavour.Console.Events ( handle ) where
 
 import           Brick
+import           Brick.BChan
 import           Brick.Widgets.List
+import           Control.Concurrent.Async
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Foldable (toList)
 import           Data.Maybe (fromJust)
@@ -18,12 +20,14 @@ import           Endeavour.Knowledge.ChromeCast
 import           Endeavour.Knowledge.Hue hiding (lights)
 import qualified Graphics.Vty as G
 import           Lens.Micro
+import           Lens.Micro.Platform ()
 import           Text.Printf.TH
 
 ---
 
 -- | The application event handler. Resizing still happens automatically.
-handle :: System -> BrickEvent t t1 -> EventM RName (Next System)
+handle :: System -> BrickEvent t EnConEvent -> EventM RName (Next System)
+handle s (AppEvent NextTrack) = castTopTrack s
 handle s (VtyEvent (G.EvKey G.KEsc _)) = halt s
 handle s (VtyEvent (G.EvKey G.KLeft [G.MShift])) = continue (s & msg .~ "<==" & pages %~ D.shiftRight)
 handle s (VtyEvent (G.EvKey G.KRight [G.MShift])) = continue (s & msg .~ "==>" & pages %~ D.shiftLeft)
@@ -50,8 +54,8 @@ lightH s (VtyEvent (G.EvKey G.KBS _)) = case listSelectedElement $ _lightGroups 
 lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= continue
 
 -- | Handle events unique to the Media page.
-mediaH :: System -> BrickEvent t t1 -> EventM RName (Next System)
-mediaH s (VtyEvent (G.EvKey G.KEnter _))       = castPlaylist s
+mediaH :: System -> BrickEvent t EnConEvent -> EventM RName (Next System)
+mediaH s (VtyEvent (G.EvKey G.KEnter _))       = castTopTrack s
 mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = eff s pause (\_ -> s & msg .~ "Pausing ChromeCast.")
 mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = eff s unpause (\_ -> s & msg .~ "Unpausing ChromeCast.")
 mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = eff s stop (\_ -> s & msg .~ "Stopping ChromeCast.")
@@ -62,8 +66,19 @@ mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleLis
                       | otherwise = handleEventLensed s mediaFiles handleListEvent e >>= continue
 
 -- | Cast everything in the playlist sequentially.
-castPlaylist :: System -> EventM RName (Next System)
-castPlaylist s = eff s (castAll . toList $ _playlist s) (\_ -> s & msg .~ "Streaming playlist.")
+--castPlaylist :: System -> EventM RName (Next System)
+--castPlaylist s = eff s (castAll . toList $ _playlist s) (\_ -> s & msg .~ "Streaming playlist.")
+
+-- | Spawn a thread that casts the top track in the playlist, waiting for it
+-- to finish. When it does, it yields a custom event to the event loop that
+-- causes this to be called again.
+castTopTrack :: System -> EventM n (Next System)
+castTopTrack s | null (_playlist s) = continue (s & msg .~ "No tracks in the playlist.")
+               | otherwise = do
+                   let track = _playlist s ^?! listElementsL . _head
+                   liftIO . async $ runEffect (_env s) (cast' track) >> writeBChan (_eventChan s) NextTrack
+                   continue (s & msg .~ [st|Casting %s|] track
+                               & playlist %~ listRemove 0)
 
 -- | Decide where to move the cursor focus.
 tabH :: System -> System

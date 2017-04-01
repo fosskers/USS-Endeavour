@@ -16,12 +16,14 @@ executable endeavour-cli
                      , Endeavour.Console.Events
 
   build-depends:       base >=4.9 && <4.10
+                     , async >= 2.1 && < 2.2
                      , brick >= 0.15 && < 0.18
                      , containers
                      , deque >= 0.2 && < 0.3
                      , endeavour >= 1.0 && < 1.1
                      , microlens >= 0.4 && < 0.5
                      , microlens-th >= 0.4 && < 0.5
+                     , microlens-platform >= 0.3 && < 0.4
                      , optparse-generic >= 1.1 && < 1.2
                      , text
                      , th-printf >= 0.3 && < 0.4

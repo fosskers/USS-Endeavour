@@ -5,6 +5,7 @@
 module Main where
 
 import           Brick
+import           Brick.BChan
 import           Brick.Widgets.List
 import           Control.Monad (void)
 import qualified Data.Map.Strict as M
@@ -30,7 +31,7 @@ import           Text.Printf.TH
 newtype Args = Args { config :: FilePath } deriving (Generic, ParseRecord)
 
 -- | A description of how to run our application.
-app :: App System () RName
+app :: App System EnConEvent RName
 app = App { appDraw = \s -> [ui s]
           , appChooseCursor = neverShowCursor
           , appHandleEvent = handle
@@ -57,8 +58,10 @@ main = do
       logs <- runM $ runReader (recall Nothing) e
       user <- T.pack <$> getEffectiveUserName
       astr <- either (const 0) length <$> runEffect e astronauts
+      chan <- newBChan 10
       let sys = System
             { _env = e
+            , _eventChan = chan
             , _msg = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
             , _pages = D.fromList [Lights ..]
             , _lightGroups = list LGroupList (V.fromList grps) 1
@@ -67,6 +70,6 @@ main = do
             , _playlist    = list Playlist (V.fromList []) 1
             , _trackView   = False
             , _logEntries  = list LogList (V.fromList logs) 1 }
-      void $ defaultMain app sys
+      void $ customMain (G.mkVty G.defaultConfig) (Just chan) app sys
       slumber e
       putStrLn "Shutdown complete."

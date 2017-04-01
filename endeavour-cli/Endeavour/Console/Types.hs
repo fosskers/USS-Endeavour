@@ -4,6 +4,7 @@
 module Endeavour.Console.Types where
 
 import           Brick
+import           Brick.BChan
 import           Brick.Widgets.List
 import           Data.Text (Text, breakOnEnd)
 import qualified Deque as D
@@ -21,8 +22,12 @@ data RName = LGroupList | MediaList | LogList | AlbumTracks | Playlist deriving 
 -- | Possible application pages.
 data Page = Lights | Media | Logs deriving (Eq, Enum, Show)
 
+-- | A custom Event of the Endeavour Console.
+data EnConEvent = NextTrack
+
 -- | The application state.
 data System = System { _env         :: Env
+                     , _eventChan   :: BChan EnConEvent
                      , _msg         :: Text
                      , _pages       :: D.Deque Page
                      , _lightGroups :: List RName (ID, Group)
