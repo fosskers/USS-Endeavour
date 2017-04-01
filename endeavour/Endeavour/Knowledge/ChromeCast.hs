@@ -14,7 +14,7 @@ module Endeavour.Knowledge.ChromeCast
   ( -- * Types
     Media(..)
   -- * Commands
-  , cast, castAll, pause, unpause, stop
+  , cast, cast', pause, unpause, stop
     -- * Resources
   , albums, videos
   ) where
@@ -34,7 +34,8 @@ import qualified Text.Fuzzy as F
 -- | An audio album with its name and tracklist, or a video file with its path.
 data Media = Album T.Text [T.Text] | Video T.Text
 
--- | ChromeCast can handle MP4, MKV, and normal audio formats (including FLAC)
+-- | Asynchronously cast a media file (this function returns immediately).
+-- ChromeCast can handle MP4, MKV, and normal audio formats (including FLAC)
 -- natively. AVIs will be converted on-the-fly via the @-transcode@ flag.
 --
 -- @stream2chromecast@ will exit successfully when the file is done playing,
@@ -45,9 +46,15 @@ cast f = do
   chronicle Info $ "Casting " <> toCast
   sheff "Failed to stream to ChromeCast." $ run_ "stream2chromecast" (castArgs toCast)
 
--- | Cast a list of files sequentially.
-castAll :: ERL r => [T.Text] -> Eff r ()
-castAll = sheff "Failed to stream." . sequence_ . map (run_ "stream2chromecast" . castArgs)
+-- | Synchronously cast a media file. This function blocks, but can be
+-- forked to a new thread with `async`.
+cast' :: ERL r => T.Text -> Eff r ()
+cast' f = do
+  toCast <- fileToCast f
+  effShelly ("Failed to stream " <> f) . silent $ run_ "stream2chromecast" (castArgs toCast)
+
+silent :: Sh a -> Sh a
+silent = print_stderr False . print_stdout False
 
 -- | If the media file is an AVI, we need to transcode it.
 castArgs :: T.Text -> [T.Text]
@@ -72,7 +79,7 @@ stop = do
 
 -- | Silently and asynchronously run a Shell command.
 sheff :: ERL r => T.Text -> Sh a -> Eff r ()
-sheff t s = void . effShelly t . asyncSh . print_stderr False $ print_stdout False s
+sheff t s = void . effShelly t . asyncSh $ silent s
 
 -- | Execute a Shelly command, smothering any thrown exceptions in `Maybe`.
 maybeSh :: Sh a -> IO (Maybe a)
