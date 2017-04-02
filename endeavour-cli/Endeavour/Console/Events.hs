@@ -8,10 +8,11 @@ import           Brick
 import           Brick.BChan
 import           Brick.Widgets.List
 import           Control.Concurrent.Async
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Foldable (toList)
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
+import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Deque as D
 import           Endeavour.Console.Types
@@ -56,18 +57,14 @@ lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= co
 -- | Handle events unique to the Media page.
 mediaH :: System -> BrickEvent t EnConEvent -> EventM RName (Next System)
 mediaH s (VtyEvent (G.EvKey G.KEnter _))       = castTopTrack s
-mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = eff s pause (\_ -> s & msg .~ "Pausing ChromeCast.")
-mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = eff s unpause (\_ -> s & msg .~ "Unpausing ChromeCast.")
+mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = liftIO (eff s pause (\s' _ -> s' & msg .~ "Pausing ChromeCast.")) >>= continue
+mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = liftIO (eff s unpause (\s' _ -> s' & msg .~ "Unpausing ChromeCast.")) >>= continue
 mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = stopCast s
 mediaH s (VtyEvent (G.EvKey G.KBS _))          = continue (s & playlist %~ listClear)
 mediaH s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ tabH s
 mediaH s (VtyEvent (G.EvKey (G.KChar ' ') _))  = continue $ spaceH s
 mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleListEvent e >>= continue
                       | otherwise = handleEventLensed s mediaFiles handleListEvent e >>= continue
-
--- | Cast everything in the playlist sequentially.
---castPlaylist :: System -> EventM RName (Next System)
---castPlaylist s = eff s (castAll . toList $ _playlist s) (\_ -> s & msg .~ "Streaming playlist.")
 
 -- | Spawn a thread that casts the top track in the playlist, waiting for it
 -- to finish. When it does, it yields a custom event to the event loop that
@@ -77,16 +74,24 @@ castTopTrack s | null (_playlist s) = continue (s & msg .~ "No tracks in the pla
                | otherwise = do
                    liftIO . maybe (pure ()) cancel $ _castThread s
                    let track = _playlist s ^?! listElementsL . _head
-                   a <- liftIO . async $ runEffect (_env s) (cast' track) >> writeBChan (_eventChan s) NextTrack
+                   a <- liftIO . async $ castWork s track
                    continue (s & msg .~ [st|Casting %s|] track
                                & castThread .~ Just a
                                & playlist %~ listRemove 0)
 
+-- | Cast a track, and only submit a `NextTrack` event if the casting succeeded.
+castWork :: System -> T.Text -> IO ()
+castWork s track = do
+  res <- runEffect (_env s) $ cast' track
+  either (\_ -> pure ()) (\_ -> writeBChan (_eventChan s) NextTrack) res
+
 stopCast :: System -> EventM n (Next System)
 stopCast s = case _castThread s of
-  Nothing -> continue (s & msg .~ "Nothing is being streamed.")
-  Just a  -> liftIO (cancel a) >> eff s' stop (\_ -> s' & msg .~ "Stopping ChromeCast.")
-    where s' = s & castThread .~ Nothing
+  Nothing -> continue (s & msg .~ "No casting thread to kill.")
+  Just a  -> do
+    liftIO $ cancel a
+    liftIO $ runEffect (_env s) stop
+    continue (s & castThread .~ Nothing & msg .~ "Stopping ChromeCast.")
 
 -- | Decide where to move the cursor focus.
 tabH :: System -> System
@@ -117,10 +122,10 @@ pushAlbumTracks s = case listSelectedElement $ _mediaFiles s of
 -- | Run an `Effect` within the `EventM` context, displaying debug messages
 -- as necessary. Requires a function @b -> System@ which produces the next
 -- state in the case where the `Effect` was successful.
-eff :: System -> Effect b -> (b -> System) -> EventM n (Next System)
+eff :: MonadIO m => System -> Effect b -> (System -> b -> System) -> m System
 eff s e f = do
   res <- liftIO $ runEffect (_env s) e
-  continue $ either (\err -> s & msg .~ err) f res
+  pure $ either (\err -> s & msg .~ err) (f s) res
 
 -- | Handle events unique to the Log page.
 logH :: System -> BrickEvent t t1 -> EventM RName (Next System)
