@@ -60,15 +60,16 @@ main = do
       astr <- either (const 0) length <$> runEffect e astronauts
       chan <- newBChan 10
       let sys = System
-            { _env = e
-            , _eventChan = chan
+            { _env         = e
+            , _eventChan   = chan
             , _msg = [st|Hello, %s. There are currently %d humans in space.|] (T.toTitle user) astr
-            , _pages = D.fromList [Lights ..]
+            , _pages       = D.fromList [Lights ..]
             , _lightGroups = list LGroupList (V.fromList grps) 1
             , _mediaFiles  = list MediaList (V.fromList mdia) 1
             , _albumTracks = list AlbumTracks (V.fromList []) 1
             , _playlist    = list Playlist (V.fromList []) 1
             , _trackView   = False
+            , _castThread  = Nothing
             , _logEntries  = list LogList (V.fromList logs) 1 }
       void $ customMain (G.mkVty G.defaultConfig) (Just chan) app sys
       slumber e

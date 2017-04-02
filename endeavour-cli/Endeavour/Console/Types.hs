@@ -6,6 +6,7 @@ module Endeavour.Console.Types where
 import           Brick
 import           Brick.BChan
 import           Brick.Widgets.List
+import           Control.Concurrent.Async (Async)
 import           Data.Text (Text, breakOnEnd)
 import qualified Deque as D
 import           Endeavour.Genetics
@@ -35,6 +36,7 @@ data System = System { _env         :: Env
                      , _albumTracks :: List RName Text
                      , _playlist    :: List RName Text
                      , _trackView   :: Bool
+                     , _castThread  :: Maybe (Async ())
                      , _logEntries  :: List RName Log }
 makeLenses ''System
 

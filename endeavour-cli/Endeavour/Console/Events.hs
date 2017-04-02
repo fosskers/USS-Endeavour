@@ -58,7 +58,7 @@ mediaH :: System -> BrickEvent t EnConEvent -> EventM RName (Next System)
 mediaH s (VtyEvent (G.EvKey G.KEnter _))       = castTopTrack s
 mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = eff s pause (\_ -> s & msg .~ "Pausing ChromeCast.")
 mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = eff s unpause (\_ -> s & msg .~ "Unpausing ChromeCast.")
-mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = eff s stop (\_ -> s & msg .~ "Stopping ChromeCast.")
+mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = stopCast s
 mediaH s (VtyEvent (G.EvKey G.KBS _))          = continue (s & playlist %~ listClear)
 mediaH s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ tabH s
 mediaH s (VtyEvent (G.EvKey (G.KChar ' ') _))  = continue $ spaceH s
@@ -75,10 +75,18 @@ mediaH s (VtyEvent e) | _trackView s = handleEventLensed s albumTracks handleLis
 castTopTrack :: System -> EventM n (Next System)
 castTopTrack s | null (_playlist s) = continue (s & msg .~ "No tracks in the playlist.")
                | otherwise = do
+                   liftIO . maybe (pure ()) cancel $ _castThread s
                    let track = _playlist s ^?! listElementsL . _head
-                   liftIO . async $ runEffect (_env s) (cast' track) >> writeBChan (_eventChan s) NextTrack
+                   a <- liftIO . async $ runEffect (_env s) (cast' track) >> writeBChan (_eventChan s) NextTrack
                    continue (s & msg .~ [st|Casting %s|] track
+                               & castThread .~ Just a
                                & playlist %~ listRemove 0)
+
+stopCast :: System -> EventM n (Next System)
+stopCast s = case _castThread s of
+  Nothing -> continue (s & msg .~ "Nothing is being streamed.")
+  Just a  -> liftIO (cancel a) >> eff s' stop (\_ -> s' & msg .~ "Stopping ChromeCast.")
+    where s' = s & castThread .~ Nothing
 
 -- | Decide where to move the cursor focus.
 tabH :: System -> System
