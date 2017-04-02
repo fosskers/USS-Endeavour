@@ -8,7 +8,7 @@ import           Brick
 import           Brick.BChan
 import           Brick.Widgets.List
 import           Control.Concurrent.Async
-import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.IO.Class (liftIO)
 import           Data.Foldable (toList)
 import           Data.Maybe (fromJust)
 import           Data.Monoid ((<>))
@@ -37,7 +37,6 @@ handle s e = case fromJust . D.head $ _pages s of
   Media  -> mediaH s e
   Logs   -> logH s e
 
--- TODO Refactor using `eff`.
 -- | Handle events unique to the Lights page.
 lightH :: System -> BrickEvent t t1 -> EventM RName (Next System)
 lightH s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _lightGroups s of
@@ -57,8 +56,8 @@ lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= co
 -- | Handle events unique to the Media page.
 mediaH :: System -> BrickEvent t EnConEvent -> EventM RName (Next System)
 mediaH s (VtyEvent (G.EvKey G.KEnter _))       = castTopTrack s
-mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = liftIO (eff s pause (\s' _ -> s' & msg .~ "Pausing ChromeCast.")) >>= continue
-mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = liftIO (eff s unpause (\s' _ -> s' & msg .~ "Unpausing ChromeCast.")) >>= continue
+mediaH s (VtyEvent (G.EvKey (G.KChar 'p') _))  = liftIO (runEffect (_env s) pause) >> continue (s & msg .~ "Pausing ChromeCast.")
+mediaH s (VtyEvent (G.EvKey (G.KChar 'c') _))  = liftIO (runEffect (_env s) unpause) >> continue (s & msg .~ "Unpausing ChromeCast.")
 mediaH s (VtyEvent (G.EvKey (G.KChar 's') _))  = stopCast s
 mediaH s (VtyEvent (G.EvKey G.KBS _))          = continue (s & playlist %~ listClear)
 mediaH s (VtyEvent (G.EvKey (G.KChar '\t') _)) = continue $ tabH s
@@ -75,7 +74,7 @@ castTopTrack s | null (_playlist s) = continue (s & msg .~ "No tracks in the pla
                    liftIO . maybe (pure ()) cancel $ _castThread s
                    let track = _playlist s ^?! listElementsL . _head
                    a <- liftIO . async $ castWork s track
-                   continue (s & msg .~ [st|Casting %s|] track
+                   continue (s & msg .~ [st|Casting %s|] (displayName track)
                                & castThread .~ Just a
                                & playlist %~ listRemove 0)
 
@@ -118,14 +117,6 @@ pushAlbumTracks s = case listSelectedElement $ _mediaFiles s of
   Just (_, Album t ts) -> s & albumTracks %~ listReplace (V.fromList ts) (Just 0)
                             & trackView .~ True
                             & msg .~ "Displaying tracks for: " <> t
-
--- | Run an `Effect` within the `EventM` context, displaying debug messages
--- as necessary. Requires a function @b -> System@ which produces the next
--- state in the case where the `Effect` was successful.
-eff :: MonadIO m => System -> Effect b -> (System -> b -> System) -> m System
-eff s e f = do
-  res <- liftIO $ runEffect (_env s) e
-  pure $ either (\err -> s & msg .~ err) (f s) res
 
 -- | Handle events unique to the Log page.
 logH :: System -> BrickEvent t t1 -> EventM RName (Next System)
