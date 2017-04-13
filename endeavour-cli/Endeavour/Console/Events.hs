@@ -39,19 +39,27 @@ handle s e = case fromJust . D.head $ _pages s of
 
 -- | Handle events unique to the Lights page.
 lightH :: System -> BrickEvent t t1 -> EventM RName (Next System)
-lightH s (VtyEvent (G.EvKey G.KEnter _)) = case listSelectedElement $ _lightGroups s of
+lightH s (VtyEvent e) = case listSelectedElement $ _lightGroups s of
   Nothing -> continue s
-  Just (_, (i, g)) -> do
-    liftIO . runEffect (_env s) $ overGroup lightOn i
-    continue (s & msg .~ [st|ON: %s|] (_gname g)
-                & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOn))
-lightH s (VtyEvent (G.EvKey G.KBS _)) = case listSelectedElement $ _lightGroups s of
-  Nothing -> continue s
-  Just (_, (i, g)) -> do
-    liftIO . runEffect (_env s) $ overGroup lightOff i
-    continue (s & msg .~ [st|OFF: %s|] (_gname g)
-                & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOff))
-lightH s (VtyEvent e) = handleEventLensed s lightGroups handleListEvent e >>= continue
+  Just (_, (i, g)) -> case e of
+    G.EvKey G.KEnter _ -> do
+      liftIO . runEffect (_env s) $ overGroup lightOn i
+      continue (s & msg .~ [st|ON: %s|] (_gname g)
+                  & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOn))
+    G.EvKey G.KBS _ -> do
+      liftIO . runEffect (_env s) $ overGroup lightOff i
+      continue (s & msg .~ [st|OFF: %s|] (_gname g)
+                  & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightOff))
+    G.EvKey (G.KChar '0') _ -> do
+      liftIO . runEffect (_env s) $ overGroup (lightBri 1) i
+      continue (s & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightBri 1))
+    G.EvKey (G.KChar c) _ | c `elem` ['1'..'9'] -> do
+      let n = read [c] / 10
+      liftIO . runEffect (_env s) $ overGroup (lightBri n) i
+      continue (s & lightGroups %~ listModify (\e -> e & _2 . gaction %~ lightBri n))
+                          | otherwise -> handleEventLensed s lightGroups handleListEvent e >>= continue
+    _ -> handleEventLensed s lightGroups handleListEvent e >>= continue
+lightH s _ = continue s
 
 -- | Handle events unique to the Media page.
 mediaH :: System -> BrickEvent t EnConEvent -> EventM RName (Next System)
@@ -88,8 +96,7 @@ stopCast :: System -> EventM n (Next System)
 stopCast s = case _castThread s of
   Nothing -> continue (s & msg .~ "No casting thread to kill.")
   Just a  -> do
-    liftIO $ cancel a
-    liftIO $ runEffect (_env s) stop
+    liftIO $ cancel a >> runEffect (_env s) stop
     continue (s & castThread .~ Nothing & msg .~ "Stopping ChromeCast.")
 
 -- | Decide where to move the cursor focus.
