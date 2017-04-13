@@ -1,9 +1,7 @@
-resolver: lts-8.5
+resolver: lts-8.9
 
 packages:
-  - './endeavour'
-  - './endeavour-server'
-  - './endeavour-cli'
+  - '.'
 
 extra-deps:
   - 'deque-0.2'
